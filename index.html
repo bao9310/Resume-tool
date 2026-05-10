@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -47,7 +47,7 @@ nav{
 .nav-tag{font-size:11px;color:var(--ink4);}
 
 /* ── WRAP ── */
-.wrap{max-width:960px;margin:0 auto;padding:0 2rem;}
+.wrap{max-width:1160px;margin:0 auto;padding:0 2rem;}
 
 /* ── HERO ── */
 .hero{
@@ -382,24 +382,24 @@ nav{
 
 /* ── FLOATING QR ── */
 .qr-float{
-  position:fixed;right:20px;top:50%;transform:translateY(-50%);
+  position:fixed;right:16px;top:50%;transform:translateY(-50%);
   z-index:200;
   background:#fff;border:1px solid var(--border2);
-  border-radius:var(--r20);padding:22px 18px;
-  box-shadow:0 6px 40px rgba(0,0,0,.14);
-  text-align:center;width:180px;
+  border-radius:var(--r16);padding:12px 10px;
+  box-shadow:0 4px 24px rgba(0,0,0,.13);
+  text-align:center;width:110px;
   animation:floatIn .5s ease;
 }
 @keyframes floatIn{from{opacity:0;transform:translateY(-50%) translateX(24px);}to{opacity:1;transform:translateY(-50%) translateX(0);}}
-.qr-float img{width:144px;height:144px;display:block;margin:0 auto 12px;border-radius:10px;}
+.qr-float img{width:86px;height:86px;display:block;margin:0 auto 7px;border-radius:8px;}
 .qr-float-placeholder{
-  width:144px;height:144px;margin:0 auto 12px;
-  background:var(--bg3);border-radius:10px;
+  width:86px;height:86px;margin:0 auto 7px;
+  background:var(--bg3);border-radius:8px;
   display:flex;align-items:center;justify-content:center;
-  font-size:48px;border:1.5px dashed var(--border2);
+  font-size:32px;border:1.5px dashed var(--border2);
 }
-.qr-txt{font-size:13px;font-weight:700;color:var(--ink);line-height:1.8;letter-spacing:.02em;}
-.qr-sub{font-size:10.5px;color:var(--ink4);margin-top:5px;line-height:1.5;}
+.qr-txt{font-size:11px;font-weight:700;color:var(--ink);line-height:1.7;letter-spacing:.02em;}
+.qr-sub{font-size:9.5px;color:var(--ink4);margin-top:3px;line-height:1.4;}
 .qr-line{color:var(--blue);}
 
 /* ── JOBTI CARD ── */
@@ -1469,6 +1469,10 @@ function renderCareer(c) {
       <div class="co-grid">
         ${coList.map(co=>renderCoCard(co)).join('')}
       </div>
+      <div style="margin-top:1.25rem;padding:1rem 1.25rem;background:linear-gradient(135deg,rgba(37,99,235,.05),rgba(124,58,237,.05));border-radius:var(--r12);border:1px solid rgba(37,99,235,.12);text-align:center;">
+        <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:.3rem;">如需了解更多企业招聘咨询</div>
+        <div style="font-size:13px;color:var(--ink3);line-height:1.7;">可扫码添加 <strong style="color:var(--blue)">包子老师</strong> 免费咨询 · 资深猎头 · 一对一简历把脉</div>
+      </div>
     </div>`;
   }
 
@@ -1493,28 +1497,47 @@ function getRecommendedCompanies(resumeText, career) {
   let targetCity='';
   for(const city of CITIES){ if(resumeText.includes(city)){targetCity=city;break;} }
 
+  // 从简历和职业规划提取关键词
   const dir=(career?.direction||'')+(career?.direction_reason||'');
-  const skillKw=(career?.skills||[]).map(s=>s.name).join('');
-  const combined=dir+skillKw;
+  const skillKw=(career?.skills||[]).map(s=>s.name).join(' ');
+  const strengthKw=(career?.strengths||[]).join(' ');
+  const combined=(dir+' '+skillKw+' '+strengthKw+' '+resumeText.slice(0,800)).toLowerCase();
 
-  // Score each company
-  const KEYS=['品牌','内容','运营','营销','传播','策划','设计','创意','媒体','数字','新媒体','公关','商务','文化','游戏','互联网','电商'];
-  const candidates=COMPANIES.filter(co=>{
-    const t=co.i+' '+co.p;
-    return KEYS.some(k=>t.includes(k)||combined.includes(k));
+  // 岗位关键词提取（从简历原文）
+  const posKws=[];
+  const posPatterns=[/人力资源|hr|招聘|培训|薪酬/i,/销售|商务|bd|客户|客服/i,/运营|新媒体|内容|社群|电商/i,/产品|需求|用户研究|原型/i,/设计|UI|UX|视觉|平面/i,/市场|营销|品牌|公关|传播/i,/财务|会计|审计|税务/i,/技术|开发|程序|工程师|数据/i,/行政|文秘|助理|后勤/i,/供应链|采购|物流|仓储/i,/法务|合规|律师/i,/咨询|战略|管理/i];
+  posPatterns.forEach(re=>{ if(re.test(resumeText)) posKws.push(re.source.split('|')[0]); });
+
+  // 对每个公司打分
+  const scored = COMPANIES.map(co => {
+    let score = 0;
+    const coText = (co.i+' '+co.p+' '+co.n).toLowerCase();
+
+    // 城市匹配
+    if(targetCity && co.c && co.c.includes(targetCity)) score += 30;
+
+    // 岗位方向匹配
+    posKws.forEach(kw=>{ if(coText.includes(kw.toLowerCase())) score += 25; });
+
+    // 职业规划关键词匹配
+    const careerWords = (dir+skillKw).split(/\s+/).filter(w=>w.length>=2);
+    careerWords.forEach(w=>{ if(coText.includes(w.toLowerCase())) score += 10; });
+
+    // 行业通用匹配
+    const ALL_KEYS=['品牌','内容','运营','营销','传播','策划','设计','创意','媒体','数字','新媒体','公关','商务','文化','游戏','互联网','电商','人力','招聘','销售','客户','产品','财务','技术','数据','咨询','行政','供应链','采购','法务'];
+    ALL_KEYS.forEach(k=>{ if(combined.includes(k) && coText.includes(k)) score += 8; });
+
+    // 有招聘链接加分
+    if(co.u && co.u.startsWith('http')) score += 5;
+
+    return { co, score };
   });
 
-  // Sort: city match first
-  candidates.sort((a,b)=>{
-    const aCity = targetCity && a.c.includes(targetCity) ? 1 : 0;
-    const bCity = targetCity && b.c.includes(targetCity) ? 1 : 0;
-    return bCity - aCity;
-  });
-
-  // Deduplicate by company name, take 4
+  // 按分数排序，去重，取8个
+  scored.sort((a,b)=>b.score-a.score);
   const seen=new Set(); const result=[];
-  for(const co of candidates){
-    if(!seen.has(co.n)&&result.length<4){seen.add(co.n);result.push(co);}
+  for(const {co} of scored){
+    if(!seen.has(co.n) && result.length<8){ seen.add(co.n); result.push(co); }
   }
   return result;
 }
@@ -1545,21 +1568,18 @@ function getReason(co){
   return '岗位与你的专业背景和职业方向匹配';
 }
 
-// ── 飞书推送（通过 Cloudflare Worker 代理，解决 CORS 问题）──
+// ── 飞书推送（直连，GitHub Pages为HTTPS来源可正常发送）──
+const FEISHU_HOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/2b8a9c9a-34ab-4f40-8338-f5ed4f528263';
+
 function sendToFeishu(title, fields) {
-  const notifyUrl = (CONFIG.proxyUrl || '').replace(/\/$/, '') + '/notify';
-  if (!CONFIG.proxyUrl) {
-    console.warn('飞书推送跳过：proxyUrl 未配置');
-    return;
-  }
   const lines = fields.map(f => `【${f.label}】${f.value}`).join('\n');
   const text = `${title}\n${'─'.repeat(24)}\n${lines}\n${'─'.repeat(24)}`;
-  fetch(notifyUrl, {
+  fetch(FEISHU_HOOK, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ text, fields })
+    body: JSON.stringify({ msg_type: 'text', content: { text } })
   }).then(r => r.json()).then(d => {
-    if (!d.ok) console.warn('飞书推送异常:', d);
+    if (d.code !== 0) console.warn('飞书推送异常:', d);
   }).catch(e => console.warn('飞书推送失败:', e));
 }
 
