@@ -612,7 +612,33 @@ nav{
 .hook-text{flex:1;}
 .hook-title{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:.2rem;}
 .hook-sub{font-size:12px;color:var(--ink3);line-height:1.65;}
-.hook-qr-hint{font-size:12px;font-weight:700;color:#92400e;background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.2);padding:6px 14px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
+.hook-qr-hint{font-size:12px;font-weight:700;color:#92400e;background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.2);padding:6px 14px;border-radius:20px;white-space:nowrap;flex-shrink:0;cursor:pointer;transition:background .2s;}
+.hook-qr-hint:hover{background:rgba(217,119,6,.2);}
+
+/* ── QR弹窗 ── */
+.qr-popup-mask{
+  display:none;position:fixed;inset:0;z-index:1000;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;
+}
+.qr-popup-mask.show{display:flex;}
+.qr-popup-box{
+  background:#fff;border-radius:var(--r24);
+  padding:2rem 1.75rem 1.5rem;
+  text-align:center;width:260px;position:relative;
+  box-shadow:0 20px 60px rgba(0,0,0,.25);
+  animation:popIn .25s ease;
+}
+@keyframes popIn{from{opacity:0;transform:scale(.88);}to{opacity:1;transform:scale(1);}}
+.qr-popup-close{
+  position:absolute;top:12px;right:14px;
+  font-size:20px;color:var(--ink4);cursor:pointer;
+  line-height:1;border:none;background:none;padding:4px;
+}
+.qr-popup-close:hover{color:var(--ink);}
+.qr-popup-box img{width:160px;height:160px;border-radius:12px;display:block;margin:0 auto 1rem;}
+.qr-popup-title{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:.3rem;}
+.qr-popup-sub{font-size:13px;color:var(--ink3);line-height:1.7;}
 
 /* ── FOOTER ── */
 footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center;font-size:11px;color:var(--ink4);line-height:1.9;}
@@ -693,7 +719,7 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
     <div class="hero-stat"><div class="stat-n">8维</div><div class="stat-l">能力雷达评估</div></div>
     <div class="hero-stat"><div class="stat-n">8+</div><div class="stat-l">平均发现问题数</div></div>
     <div class="hero-stat"><div class="stat-n">每条</div><div class="stat-l">附修改参考文案</div></div>
-    <div class="hero-stat"><div class="stat-n">4家</div><div class="stat-l">精准企业推荐</div></div>
+    <div class="hero-stat"><div class="stat-n">8家</div><div class="stat-l">精准企业推荐</div></div>
   </div>
 </div>
 
@@ -826,6 +852,16 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
     <div class="modal-field"><label>手机号码</label><input type="tel" id="unlockPhone" placeholder="如有问题方便联系你"></div>
     <button class="modal-submit" onclick="submitUnlock()">立即解锁 →</button>
     <div class="modal-privacy">📌 信息仅用于包子老师一对一跟进，不会公开或转售</div>
+  </div>
+</div>
+
+<!-- ── QR弹窗 ── -->
+<div class="qr-popup-mask" id="qrPopupMask" onclick="if(event.target===this)hideQrPopup()">
+  <div class="qr-popup-box">
+    <button class="qr-popup-close" onclick="hideQrPopup()">✕</button>
+    <img class="qr-auto-src" alt="包子老师二维码">
+    <div class="qr-popup-title">扫码添加包子老师</div>
+    <div class="qr-popup-sub">资深猎头 · 一对一免费诊断<br>简历修改 · 改完为止</div>
   </div>
 </div>
 
@@ -972,9 +1008,11 @@ JobTI 简历人格诊断体系（包子老师出品10型简历图鉴），从中
 
 ⚠️ JobTI点评注意事项（非常重要）：
 1. jobti_types的comment字段：直接点评简历中的具体现象，不要说"你属于XX型"、"你是XX型"这类给人贴标签的话，也不要提类型名称。像老朋友说话那样自然，直接说"你这个简历……""我看你写的……"
-2. 时间线判断要谨慎：在职时间短不一定是频繁跳槽（可能是实习、非全日制、项目制、外包）；学习和工作时间重叠不是问题（可能是在职读研或非全日制学历）。没有明确说明时不要凭猜测批评。
+2. 时间线判断要极其谨慎：【实习经历2-6个月完全正常】——暑期实习通常就是2-3个月，寒假实习1-2个月，这是应届生的正常节奏，绝对不能判断为弹簧腿型。只有正式工作（非实习）频繁更换才考虑此类型。学历在读期间有工作经历不是问题。没有明确说明时，宁可不批评时间线。
 3. 对于候选人的经历背景，如果与目标岗位关联不强，不要说"没有相关经历"——而是帮助找到可以迁移的能力点。
 4. 东北话风格要自然，多用比喻和俚语，少用口号式语言。可以用"这不""你说这事儿""得了吧""哎呀""整这一手"等，但不要过于卖力，说话要像个真实的人。
+5. 【严禁吹毛求疵】：不要对每个细节都挑毛病，点评要抓主要矛盾，有亮点要真诚夸出来，不要为了显示专业而过度批评。找出真正影响求职的核心问题，而非鸡蛋里挑骨头。
+6. 【评分标准严格把控】：大多数普通简历55-72分；有一定亮点的简历72-80分；优秀简历80-88分；极少数顶级简历最高不超过90分。普通应届生简历不要轻易超过75分。评分要体现真实差距，让用户有改进空间。
 
 请对简历进行全面诊断，严格按以下JSON格式返回，不要有任何多余文字：
 
@@ -1166,7 +1204,7 @@ function renderResult(data) {
       <div class="hook-title">知道问题在哪，才是改简历的第一步</div>
       <div class="hook-sub">看完这份诊断，如果你希望有人帮你逐句打磨、告诉你怎么改最有效——包子老师提供一对一简历修改服务，改完为止。</div>
     </div>
-    <div class="hook-qr-hint">扫码了解 →</div>`;
+    <div class="hook-qr-hint" onclick="showQrPopup()">扫码了解</div>`;
   document.getElementById('pfixWrap').insertAdjacentElement('afterend', ovHook);
 
   // ── 逐条分析：中间插入钩子 + 底部钩子 ──
@@ -1181,7 +1219,7 @@ function renderResult(data) {
       <div class="hook-title">改了简历，不知道改得对不对？</div>
       <div class="hook-sub">包子老师提供「简历诊断+修改」一体化服务，猎头视角逐句把关，帮你写出真正能拿面试的简历。</div>
     </div>
-    <div class="hook-qr-hint">扫码咨询 →</div>`;
+    <div class="hook-qr-hint" onclick="showQrPopup()">扫码咨询</div>`;
   // 底部钩子
   const hookEl = document.createElement('div');
   hookEl.className = 'hook-bar';
@@ -1191,7 +1229,7 @@ function renderResult(data) {
       <div class="hook-title">简历只是求职的第一关，面试才是真正的淘汰场</div>
       <div class="hook-sub">很多人改完简历拿到面试，却在第一个问题就卡壳了。包子老师提供一对一面试陪跑，帮你把经历讲得有力量、让面试官记住你。</div>
     </div>
-    <div class="hook-qr-hint">扫码咨询 →</div>`;
+    <div class="hook-qr-hint" onclick="showQrPopup()">扫码咨询</div>`;
   issuesList.appendChild(hookEl);
   // 中间钩子延迟插入（等 issues 渲染完）
   setTimeout(() => {
@@ -1259,16 +1297,14 @@ function shareJobTI(type, info) {
   const score = document.getElementById('ovScore').textContent || '?';
   const job = document.getElementById('jobTarget').value.trim() || '求职';
   const text =
-`我刚用包子老师的简历AI诊断工具，发现我的简历是「${type.type}${info.emoji}」！
+`我用包子老师的简历AI诊断工具，发现我的简历是「${type.type}${info.emoji}」！
 
-${info.def.slice(0,40)}……
-
-包子老师说：${type.comment.slice(0,60)}……
+包子老师说：${type.comment.slice(0,80)}……
 
 我的简历综合评分：${score}分
 
-你的简历是哪型？包子老师帮你免费诊断👇
-（扫描包子老师的微信二维码）`;
+你的简历是哪型？免费来诊断👇
+www.baoziqiuzhi.com`;
 
   if (navigator.clipboard) {
     navigator.clipboard.writeText(text).then(() => showToast());
@@ -1278,6 +1314,13 @@ ${info.def.slice(0,40)}……
     ta.select(); document.execCommand('copy');
     document.body.removeChild(ta); showToast();
   }
+}
+
+function showQrPopup() {
+  document.getElementById('qrPopupMask').classList.add('show');
+}
+function hideQrPopup() {
+  document.getElementById('qrPopupMask').classList.remove('show');
 }
 
 function showToast() {
@@ -1513,7 +1556,7 @@ function renderCareer(c) {
     <div class="hook-icon">🚀</div>
     <div class="hook-text">
       <div class="hook-title">职业规划有了，执行才是关键</div>
-      <div class="hook-sub">包子老师提供「作品化求职辅导」——不只改简历，帮你从头梳理经历，建立求职作品集，陪你一路走到offer。想了解详情？扫右侧二维码找包子老师聊。</div>
+      <div class="hook-sub">包子老师提供「作品化求职辅导」——不只改简历，帮你从头梳理经历，建立求职作品集，陪你一路走到offer。扫描二维码找包子老师免费诊断咨询。</div>
     </div>
     <div class="hook-qr-hint">扫码了解 →</div>
   </div>`;
@@ -1601,7 +1644,7 @@ function getReason(co){
 }
 
 // ── 飞书推送（直连，GitHub Pages为HTTPS来源可正常发送）──
-const FEISHU_HOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/2b8a9c9a-34ab-4f40-8338-f5ed4f528263';
+const FEISHU_HOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/db88e407-cf4d-4d61-a432-c6525aca3ae1';
 
 function sendToFeishu(title, fields) {
   const lines = fields.map(f => `【${f.label}】${f.value}`).join('\n');
