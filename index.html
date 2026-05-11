@@ -1032,7 +1032,20 @@ JobTI 简历人格诊断体系（包子老师出品10型简历图鉴），从中
 - 标记格式严格：===ISSUE_START:issue_1:high===有问题的原文内容===ISSUE_END===
 - issue id 要和 issues 数组里的 id 完全一致（如 issue_1, issue_2…）
 - 标记只括原文中有问题的那部分词句，不要把整段都括进去
-- 如果简历较长，career字段可以适当精简，但annotated_resume和issues必须完整`;
+- 如果简历较长，career字段可以适当精简，但annotated_resume和issues必须完整
+
+⚠️ 【参考文案（rewrite）写作规则，极其重要】：
+rewrite 是给用户参考的改写示例，必须遵守以下规则：
+1. 【禁止捏造数据】：简历原文中没有出现的具体数字（人数、金额、比例、增长率等），一律不得在rewrite中自行编造。
+2. 【用占位符代替未知数据】：凡是需要量化但原文没提供数字的地方，统一用「XX」作为占位符，提示用户自己填入真实数据。
+3. 【占位格式示例】：
+   - 人数：「负责XX名学员的排课与跟进」
+   - 比例：「月度留存率XX%」
+   - 金额：「转化金额约X万元」
+   - 增幅：「效率提升XX%」
+   - 排名：「位列同期项目前X名」
+4. rewrite只改写结构和表达方式，数据坑位留给用户自己填写真实数字，不替用户"发明"数据。
+5. 如果原文已有数字，可以保留并在此基础上优化表达，不得修改原有数字。`;
 
   const USER = `请诊断以下简历${ctx ? `（${ctx}）` : ''}：\n\n${content}`;
 
@@ -1207,7 +1220,7 @@ function renderResult(data) {
         <div class="isec"><div class="isec-lbl">原文</div><div class="orig-box">${esc(issue.original)}</div></div>
         <div class="isec"><div class="isec-lbl">问题分析</div><div class="isec-txt">${esc(issue.problem)}</div></div>
         <div class="isec"><div class="isec-lbl">修改建议</div><div class="isec-txt">${esc(issue.suggestion)}</div></div>
-        <div class="isec"><div class="isec-lbl">参考文案 · 可直接使用</div><div class="rewrite-box">${esc(issue.rewrite)}</div></div>
+        <div class="isec"><div class="isec-lbl">参考文案 · XX处填入你的真实数据</div><div class="rewrite-box">${esc(issue.rewrite)}</div></div>
       </div>`;
     container.appendChild(el);
 
