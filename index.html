@@ -885,8 +885,6 @@ const CONFIG = {
   anthropicKey: '',
   proxyUrl:     '',
 };
-// 专业版模式：URL加 ?pro=baozi 解锁，用于展示经专业优化后的简历真实评分
-const PRO_MODE = new URLSearchParams(window.location.search).get('pro') === 'baozi';
 // ══════════════════════════════════
 
 // ── JobTI 类型数据 ──
@@ -1014,7 +1012,7 @@ JobTI 简历人格诊断体系（包子老师出品10型简历图鉴），从中
 3. 对于候选人的经历背景，如果与目标岗位关联不强，不要说"没有相关经历"——而是帮助找到可以迁移的能力点。
 4. 东北话风格要自然，多用比喻和俚语，少用口号式语言。可以用"这不""你说这事儿""得了吧""哎呀""整这一手"等，但不要过于卖力，说话要像个真实的人。
 5. 【严禁吹毛求疵】：不要对每个细节都挑毛病，点评要抓主要矛盾，有亮点要真诚夸出来，不要为了显示专业而过度批评。找出真正影响求职的核心问题，而非鸡蛋里挑骨头。
-6. 【评分标准严格把控】：大多数普通简历55-72分；有一定亮点的简历72-80分；优秀简历80-88分；极少数顶级简历最高不超过90分。普通应届生简历不要轻易超过75分。评分要体现真实差距，让用户有改进空间。${PRO_MODE ? '\n\n⭐【专业优化版评分】：本次提交的简历已经过专业猎头团队深度修改和打磨，请如实、客观地反映其真实水准。如简历在成就量化、结构完整、关键词覆盖、差异竞争力等维度表现突出，综合评分可给到88-95分，不必人为压低。同时issues只列出真正需要改进的点，对于已经做得好的地方要在baozi_comment和summary中明确肯定。' : ''}
+6. 【评分标准严格把控】：大多数普通简历55-72分；有一定亮点的简历72-80分；优秀简历80-88分；极少数顶级简历最高不超过90分。普通应届生简历不要轻易超过75分。评分要体现真实差距，让用户有改进空间。
 
 请对简历进行全面诊断，严格按以下JSON格式返回，不要有任何多余文字：
 
@@ -1177,10 +1175,21 @@ function renderResult(data) {
   const raw = autoInjectMarkers(data.annotated_resume || rawResumeText, issues);
   document.getElementById('annotatedResume').innerHTML = formatResume(raw);
 
-  // Issues
+  // Issues — 按优先级排序：high → medium → low
+  const severityOrder = { high: 0, medium: 1, low: 2 };
+  const sortedIssues = [...issues].sort((a, b) =>
+    (severityOrder[a.severity] ?? 3) - (severityOrder[b.severity] ?? 3)
+  );
+
   const container = document.getElementById('issuesList');
   container.innerHTML = '';
-  issues.forEach(issue => {
+
+  // 找出「缺少项目经历」issue（用于后续精准插入钩子）
+  const projIssueObj = sortedIssues.find(i =>
+    i.id === 'issue_proj' || (i.title && i.title.includes('项目经历'))
+  );
+
+  sortedIssues.forEach(issue => {
     const s = issue.severity;
     const dc = s==='high'?'idot-h':s==='medium'?'idot-m':'idot-l';
     const tc = s==='high'?'itag-h':s==='medium'?'itag-m':'itag-l';
@@ -1201,6 +1210,21 @@ function renderResult(data) {
         <div class="isec"><div class="isec-lbl">参考文案 · 可直接使用</div><div class="rewrite-box">${esc(issue.rewrite)}</div></div>
       </div>`;
     container.appendChild(el);
+
+    // 紧跟「缺少项目经历」卡片后插入作品化求职钩子
+    if (projIssueObj && issue === projIssueObj) {
+      const projHookEl = document.createElement('div');
+      projHookEl.className = 'hook-bar';
+      projHookEl.style.cssText = 'background:linear-gradient(135deg,#fff7ed,#fdf4ff);border-color:rgba(124,58,237,.2);';
+      projHookEl.innerHTML = `
+        <div class="hook-icon">🚀</div>
+        <div class="hook-text">
+          <div class="hook-title">没有项目经历？我们帮你从0到1打造</div>
+          <div class="hook-sub">包子老师提供「作品化求职辅导」——结合你现有的实习经历，帮你提炼、包装出有含金量的项目作品，让简历真正立起来，让HR一眼记住你。</div>
+        </div>
+        <div class="hook-qr-hint" onclick="showQrPopup()">了解服务</div>`;
+      container.appendChild(projHookEl);
+    }
   });
 
   renderCareer(data.career);
@@ -1231,25 +1255,6 @@ function renderResult(data) {
       <div class="hook-sub">包子老师提供「简历诊断+修改」一体化服务，猎头视角逐句把关，帮你写出真正能拿面试的简历。</div>
     </div>
     <div class="hook-qr-hint" onclick="showQrPopup()">扫码咨询</div>`;
-  // ── 项目经历钩子（仅当 AI 检测到缺少项目经历时出现）──
-  const hasProjIssue = issues.some(i =>
-    i.id === 'issue_proj' || (i.title && i.title.includes('项目经历'))
-  );
-  if (hasProjIssue) {
-    const projHookEl = document.createElement('div');
-    projHookEl.className = 'hook-bar';
-    projHookEl.style.background = 'linear-gradient(135deg,#fff7ed,#fdf4ff)';
-    projHookEl.style.borderColor = 'rgba(124,58,237,.2)';
-    projHookEl.innerHTML = `
-      <div class="hook-icon">🚀</div>
-      <div class="hook-text">
-        <div class="hook-title">没有项目经历？我们帮你从0到1打造</div>
-        <div class="hook-sub">包子老师提供「作品化求职辅导」——结合你现有的实习经历，帮你提炼、包装出有含金量的项目作品，让简历真正立起来，让HR一眼记住你。</div>
-      </div>
-      <div class="hook-qr-hint" onclick="showQrPopup()">了解服务</div>`;
-    issuesList.appendChild(projHookEl);
-  }
-
   // 底部钩子
   const hookEl = document.createElement('div');
   hookEl.className = 'hook-bar';
@@ -1333,8 +1338,11 @@ function shareJobTI(type, info) {
 
 我的简历综合评分：${score}分
 
-你的简历是哪型？免费来诊断👇
-www.baoziqiuzhi.com`;
+你的简历是哪种类型？免费来诊断👇
+www.baoziqiuzhi.com
+
+求职遇到困难，添加包子老师给你免费1对1诊断咨询👇
+https://work.weixin.qq.com/ca/cawcde4142cce2641f`;
 
   if (navigator.clipboard) {
     navigator.clipboard.writeText(text).then(() => showToast());
