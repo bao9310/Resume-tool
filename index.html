@@ -272,8 +272,9 @@ nav{
 .rs-section{font-size:14px;font-weight:700;color:var(--ink);padding:.75rem 0 .3rem;border-bottom:2px solid var(--border2);margin:.5rem 0 .3rem;letter-spacing:.02em;}
 .rs-bullet{padding:.2rem 0 .2rem 1.5rem;color:var(--ink2);position:relative;}
 .rs-bullet::before{content:'';position:absolute;left:.5rem;top:.8em;width:4px;height:4px;border-radius:50%;background:var(--blue);opacity:.6;}
-.rs-gap{height:.5rem;}
-.rs-line{padding:.1rem 0;color:var(--ink2);}
+.rs-subhead{padding:.45rem 0 .1rem;color:var(--ink);font-weight:600;font-size:13.5px;}
+.rs-gap{height:.6rem;}
+.rs-line{padding:.15rem 0;color:var(--ink2);}
 .rs-header-block{margin-bottom:.3rem;}
 
 /* Highlights — stronger */
@@ -1084,13 +1085,24 @@ jobti_tagline必须引用简历中的具体细节（具体公司名/具体title/
 2. 对候选人背景与岗位关联不强的情况，帮助找迁移能力点，不说"没有相关经历"。
 3. 东北话自然，多比喻，少口号，像真实的人在说话。
 5. 【严禁吹毛求疵】：不要对每个细节都挑毛病，点评要抓主要矛盾，有亮点要真诚夸出来，不要为了显示专业而过度批评。找出真正影响求职的核心问题，而非鸡蛋里挑骨头。
-5. 【评分标准重新校准，必须严格执行】：
-   - 45-64分：经历空白/内容极薄/表达混乱的简历
-   - 65-74分：有实习但亮点不突出、表达平平的普通应届生
-   - 75-82分：有海外名校或大厂背景、实习质量较好、表达中等的简历
-   - 83-89分：海外名校+多段知名机构实习+表达较好+量化充分，属于市场上20%的优质简历
-   - 90-95分：各维度接近满分的顶尖简历（极少数）
-   **关键原则：评分反映候选人在同类求职市场中的真实竞争力，不是故意压低来"留改进空间"。如果一份简历背景强+实习好+表达及格，就该打85+，不要因为有个别小问题而大幅压分。**
+5. 【评分体系：以简历质量为核心，背景为辅助加分——必须严格执行】：
+   **核心权重（约70%）**：简历写作质量——描述完整性、成就量化程度、动词力度、结构逻辑、是否能充分展现候选人的真实能力。这是评分最重要的维度，与学校背景无关。
+   **背景加成（约30%，单项有上限）**：
+   - 学校档次：985/211/QS前100海外名校（+8~15分）；普通本科（+3~7分）；专科（+1~3分）
+   - 实习机构：头部金融机构/知名大厂/顶尖公司（+5~10分）；一般机构（+1~4分）
+
+   **分档标准**：
+   - 40-59分：简历内容极薄，描述空洞无实质，结构混乱，基本没有可读性
+   - 60-69分：有基本框架，但描述薄弱、量化不足、亮点不突出，典型普通应届生流水账
+   - 70-79分：描述较完整，有一定量化，表达中等，内容基本能撑起来，普通背景写作及格水平
+   - 80-87分：描述丰富、量化充分、结构清晰、充分展现候选人能力——普通院校简历写得好完全可以进入此区间
+   - 88-94分：写作质量优秀，且背景加成明显（名校+知名机构），属市场前15%
+   - 95-100分：写作几乎无可挑剔+顶尖名校+知名机构多段，极少数
+
+   **核心原则（禁止违反）**：
+   ① 背景弱≠简历分低。普通院校候选人把简历写得描述丰富、数据充分、能力展现清晰，可以打到80-87分。
+   ② 背景强≠简历分高。名校候选人简历写得描述薄弱、量化不足，不能因学校好就拔高分数。
+   ③ 评分是对【这份简历】的质量判断，不是对【候选人人生】的综合评价。
 6. 【职业主线判断规则，极其重要】：
    - 判断职业主线清晰与否，看的是【岗位性质/职能方向】（如：投行、咨询、产品、运营），而不是所接触的【客户行业】。
    - 投行/咨询/研究等行业，天然需要接触多个行业的客户或项目（医疗、科技、消费、TMT等），这是职业特性，不是方向模糊。
@@ -1201,21 +1213,53 @@ function setLock(on) {
 function autoInjectMarkers(annotated, issues) {
   if (!issues || !issues.length) return annotated;
   let text = annotated;
+
   issues.forEach(issue => {
     const id  = issue.id;
     const sev = issue.severity || 'medium';
     const orig = (issue.original || '').trim();
-    if (!orig) return;
-    // Skip if already marked
-    if (text.includes(`===ISSUE_START:${id}:`)) return;
-    // Try to find the original text and wrap it
-    const idx = text.indexOf(orig);
+    if (!orig || orig.length < 2) return;
+    if (text.includes(`===ISSUE_START:${id}:`)) return; // already marked
+
+    // ① 精确匹配
+    let idx = text.indexOf(orig);
     if (idx !== -1) {
       text = text.slice(0, idx)
         + `===ISSUE_START:${id}:${sev}===`
         + orig
         + `===ISSUE_END===`
         + text.slice(idx + orig.length);
+      return;
+    }
+
+    // ② 空白归一化匹配（PDF提取常引入多余空格或全角空格）
+    try {
+      const escaped = orig.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const flexPat = escaped.replace(/\s+/g, '[\\s\\u3000 ]+');
+      const re = new RegExp(flexPat);
+      const m = text.match(re);
+      if (m && m.index !== undefined) {
+        text = text.slice(0, m.index)
+          + `===ISSUE_START:${id}:${sev}===`
+          + m[0]
+          + `===ISSUE_END===`
+          + text.slice(m.index + m[0].length);
+        return;
+      }
+    } catch(e) { /* 正则构造失败时跳过 */ }
+
+    // ③ 前20字符定位（orig过长或含特殊符号时的降级方案）
+    const shortOrig = orig.slice(0, 20).trim();
+    if (shortOrig.length >= 6) {
+      idx = text.indexOf(shortOrig);
+      if (idx !== -1) {
+        // 只标注找到的短片段
+        text = text.slice(0, idx)
+          + `===ISSUE_START:${id}:${sev}===`
+          + shortOrig
+          + `===ISSUE_END===`
+          + text.slice(idx + shortOrig.length);
+      }
     }
   });
   return text;
@@ -1578,42 +1622,83 @@ function buildRadar(dims) {
   return svg;
 }
 
-// ── Format resume (两步法，彻底解决标注渲染Bug) ──
+// ── Format resume (三步法：提取标注 → 预处理PDF文本 → 逐行渲染) ──
 function formatResume(raw) {
-  const SECTIONS=['教育背景','工作经历','实习经历','项目经历','校园经历','专业技能','技能特长','自我评价','自我介绍','荣誉奖项','获奖情况','社会实践','科研经历','语言能力','个人简介','求职意向'];
-  const BULLETS=/^[\s]*[·•➤≥☆►▶→⋅▸◆▪◦●✿\-＞＊☞➢\[\]]\s*/;
+  if (!raw) return '<div class="rs-line">（简历内容为空）</div>';
+
+  const SECTIONS = ['教育背景','工作经历','实习经历','项目经历','校园经历','专业技能',
+    '技能特长','自我评价','自我介绍','荣誉奖项','获奖情况','社会实践','科研经历',
+    '语言能力','个人简介','求职意向','基本信息','个人信息','实践经历','在校经历',
+    '学术经历','研究经历','证书奖项','个人技能','所获奖项','语言技能','竞赛经历',
+    '志愿服务','课外活动','发表论文','出版物'];
+  const BULLETS = /^[\s　]*[·•➤≥☆►▶→⋅▸◆▪◦●✿\-＞＊☞➢]\s*/;
+  // 联系信息关键字（用于识别简历头部信息行）
+  const CONTACT_RE = /[\w.+]+@[\w.]+|1[3-9]\d{9}|linkedin|github|电话|邮箱|手机|地址/i;
 
   // ── 第一步：提取所有标注块，替换为占位符 ──
   const markers = {};
   let keyIdx = 0;
-  // 先处理成对标注（有ISSUE_END）
   let text = raw.replace(/===ISSUE_START:(\w[\w_]*):(high|medium|low)===([\s\S]*?)===ISSUE_END===/gi,
     (_, id, sev, content) => {
       const key = `\x01MARK${keyIdx++}\x01`;
-      markers[key] = `<span class="hl-${sev.toLowerCase()}" onclick="jumpToIssue('${id}')" title="点击查看详情">${escLine(content.trim())}</span>`;
+      // 多行highlight内容转为带换行的span
+      const inner = escLine(content.trim()).replace(/\n/g, '<br>');
+      markers[key] = `<span class="hl-${sev.toLowerCase()}" onclick="jumpToIssue('${id}')" title="点击查看详情">${inner}</span>`;
       return key;
     });
-  // 清理残留未配对的标记
+  // 清理残留未配对标记
   text = text.replace(/===ISSUE_START:[^=]*===/gi, '').replace(/===ISSUE_END===/gi, '');
 
-  // ── 第二步：按行处理，扩展占位符 ──
+  // ── 第二步：预处理——修复PDF提取的文字墙（在章节关键词前注入换行）──
+  // 先把占位符临时保护（不被section分割破坏）
+  SECTIONS.forEach(sec => {
+    // 如果 sec 出现在非行首位置，在其前面插入换行符
+    // 用 replace 配合正则，匹配"非换行字符 + sec关键词"
+    const re = new RegExp(`([^\n\x01])(${sec})`, 'g');
+    text = text.replace(re, (_, pre, keyword) => `${pre}\n${keyword}`);
+  });
+  // 合并连续多个空行为单个
+  text = text.replace(/(\n\s*){3,}/g, '\n\n');
+
+  // ── 第三步：逐行渲染 ──
   const lines = text.split(/\r?\n/);
   let html = '';
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) { html += '<div class="rs-gap"></div>'; continue; }
+  let prevWasGap = false;
 
-    // 判断行类型（用去掉占位符后的纯文本判断）
-    const plain = trimmed.replace(/\x01MARK\d+\x01/g, '');
-    const isSec    = SECTIONS.some(s => plain.includes(s)) && plain.length < 32;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+
+    if (!trimmed) {
+      if (!prevWasGap) { html += '<div class="rs-gap"></div>'; prevWasGap = true; }
+      continue;
+    }
+    prevWasGap = false;
+
+    // 去掉占位符后的纯文本，用于行类型判断
+    const plain = trimmed.replace(/\x01MARK\d+\x01/g, '').trim();
+
+    // 判断是否为章节标题
+    const isSec = SECTIONS.some(s =>
+      plain === s || plain === s + '：' || plain === s + ':' ||
+      (plain.startsWith(s) && plain.length <= s.length + 4 && !/\d/.test(plain.slice(s.length)))
+    );
+
+    // 判断是否为子标题行（无项目符号但首行是公司/职位/时间，长度适中）
+    const isSubhead = !isSec && plain.length < 60 &&
+      /[一-龥A-Za-z]{2,}.*?(20\d{2}|实习|全职|兼职|intern)/i.test(plain) &&
+      i > 0 && !lines[i-1].trim();
+
+    // 判断项目符号行
     const isBullet = BULLETS.test(plain);
 
-    // 扩展占位符为高亮 span
-    const expanded = escLine(trimmed).replace(/\x01MARK(\d+)\x01/g, (m) => markers[m] || '');
+    // 扩展占位符为高亮 span（先转义再还原占位符）
+    const escaped = escLine(trimmed);
+    const expanded = escaped.replace(/\x01MARK(\d+)\x01/g, (m) => markers[m] || '');
 
     if (isSec)         html += `<div class="rs-section">${expanded}</div>`;
-    else if (isBullet) html += `<div class="rs-bullet">${expanded}</div>`;
-    else               html += `<div class="rs-line">${expanded}</div>`;
+    else if (isSubhead) html += `<div class="rs-subhead">${expanded}</div>`;
+    else if (isBullet)  html += `<div class="rs-bullet">${expanded}</div>`;
+    else                html += `<div class="rs-line">${expanded}</div>`;
   }
   return html || '<div class="rs-line">（简历内容为空）</div>';
 }
