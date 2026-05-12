@@ -435,47 +435,67 @@ nav{
   position:relative;overflow:hidden;
 }
 .jobti-orb{position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(124,58,237,.18) 0%,transparent 70%);border-radius:50%;pointer-events:none;}
-.jobti-top{display:flex;align-items:flex-start;gap:1.5rem;position:relative;z-index:1;}
-/* 图片容器 */
-.jobti-img-wrap{
-  flex-shrink:0;width:110px;
+
+/* ── 两栏布局：左图右文 ── */
+.jobti-layout{
+  display:flex;align-items:stretch;gap:1.75rem;
+  position:relative;z-index:1;
+}
+/* 左栏：图片 */
+.jobti-img-col{
+  flex-shrink:0;
+  width:200px;
   border-radius:var(--r16);overflow:hidden;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  box-shadow:0 12px 40px rgba(0,0,0,.6);
   border:2px solid rgba(255,255,255,.12);
+  align-self:stretch;
 }
-.jobti-img{width:100%;display:block;}
-/* 旧 emoji 图标（fallback） */
+.jobti-img{width:100%;height:100%;object-fit:cover;display:block;}
+/* emoji fallback */
 .jobti-icon-wrap{
-  width:76px;height:76px;flex-shrink:0;
+  width:200px;height:100%;min-height:180px;flex-shrink:0;
   background:linear-gradient(135deg,#4c1d95,#7c3aed);
-  border-radius:var(--r16);  display:flex;align-items:center;justify-content:center;
-  font-size:36px;
-  box-shadow:0 3px 14px rgba(217,119,6,.22);
+  border-radius:var(--r16);display:flex;align-items:center;justify-content:center;
+  font-size:64px;
 }
-.jobti-content{flex:1;min-width:0;}
+/* 右栏：所有文字内容 */
+.jobti-right-col{
+  flex:1;min-width:0;
+  display:flex;flex-direction:column;gap:.55rem;
+}
 .jobti-badge{
   display:inline-block;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
   background:rgba(124,58,237,.2);color:#c4b5fd;border:1px solid rgba(124,58,237,.35);
-  padding:3px 10px;border-radius:20px;margin-bottom:.6rem;
+  padding:3px 10px;border-radius:20px;
+  align-self:flex-start;
 }
-.jobti-name{font-size:22px;font-weight:900;color:#fff;margin-bottom:.2rem;letter-spacing:-.01em;line-height:1.2;}
-.jobti-suffix-tag{font-size:14px;font-weight:600;color:#a5b4fc;margin-left:.5rem;letter-spacing:0;}
-.jobti-sub-tagline{font-size:12px;color:rgba(255,255,255,.5);margin-bottom:.6rem;line-height:1.6;}
+.jobti-name{font-size:24px;font-weight:900;color:#fff;letter-spacing:-.01em;line-height:1.2;}
+.jobti-suffix-tag{font-size:15px;font-weight:600;color:#a5b4fc;margin-left:.5rem;letter-spacing:0;}
+.jobti-sub-tagline{font-size:12.5px;color:rgba(255,255,255,.5);line-height:1.65;}
 .jobti-tier-badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;}
 .jobti-tier-x  {background:rgba(37,99,235,.25);color:#93c5fd;}
 .jobti-tier-mid{background:rgba(217,119,6,.25);color:#fcd34d;}
 .jobti-tier-sos{background:rgba(220,38,38,.2); color:#fca5a5;}
-.jobti-stars{font-size:12px;color:#fbbf24;letter-spacing:1px;margin-left:6px;}
+.jobti-stars{font-size:13px;color:#fbbf24;letter-spacing:2px;margin-left:6px;}
 .jobti-comment-wrap{
+  flex:1;
   background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
   border-radius:var(--r12);padding:1rem 1.25rem;
-  border-left:3px solid #7c3aed;position:relative;z-index:1;margin-top:.85rem;
+  border-left:3px solid #7c3aed;
 }
 .jobti-comment-label{
   font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
   color:#c4b5fd;margin-bottom:.45rem;display:flex;align-items:center;gap:5px;
 }
 .jobti-comment-text{font-size:13.5px;color:rgba(255,255,255,.85);line-height:1.9;}
+
+/* 移动端：上下排列 */
+@media(max-width:600px){
+  .jobti-layout{flex-direction:column;}
+  .jobti-img-col{width:100%;height:200px;}
+  .jobti-img{object-position:top;}
+  .jobti-icon-wrap{width:100%;height:160px;min-height:unset;}
+}
 
 /* ── STAT CARDS ── */
 .stat-cards-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;}
@@ -1358,30 +1378,30 @@ function renderJobTI(data) {
   const starsOff = '☆'.repeat(5 - (info.stars || 3));
   const displayComment = tagline || info.baozi || '';
 
-  // 图片 or emoji fallback
-  const imgHtml = info.img
-    ? `<div class="jobti-img-wrap"><img src="${info.img}" alt="${esc(main)}" class="jobti-img" onerror="this.parentElement.innerHTML='<div class=jobti-icon-wrap style=display:flex;align-items:center;justify-content:center>${info.emoji||'📋'}</div>'"></div>`
-    : `<div class="jobti-icon-wrap" style="display:flex;align-items:center;justify-content:center;font-size:36px">${info.emoji||'📋'}</div>`;
+  // 左栏：图片 or emoji fallback
+  const imgColHtml = info.img
+    ? `<div class="jobti-img-col"><img src="${info.img}" alt="${esc(main)}" class="jobti-img" onerror="this.parentElement.outerHTML='<div class=jobti-icon-wrap>${info.emoji||'📋'}</div>'"></div>`
+    : `<div class="jobti-icon-wrap">${info.emoji||'📋'}</div>`;
 
   const suffixHtml = suffix ? `<span class="jobti-suffix-tag">· ${esc(suffix)}</span>` : '';
 
   const html = `<div class="jobti-wrap"><div class="jobti-card">
     <div class="jobti-orb"></div>
-    <div class="jobti-top">
-      ${imgHtml}
-      <div class="jobti-content">
+    <div class="jobti-layout">
+      ${imgColHtml}
+      <div class="jobti-right-col">
         <div class="jobti-badge">JOBTI V2.0 · 包子老师简历人格</div>
         <div class="jobti-name">${esc(main)}${suffixHtml}</div>
         <div class="jobti-sub-tagline">${esc(info.tagline)}</div>
-        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:.4rem">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
           <span class="jobti-tier-badge ${info.tierCls||''}">${esc(info.tier)}</span>
           <span class="jobti-stars" title="装X值">${starsOn}${starsOff}</span>
         </div>
+        <div class="jobti-comment-wrap">
+          <div class="jobti-comment-label">🎙️ 包子老师专属点评</div>
+          <div class="jobti-comment-text">${esc(displayComment)}</div>
+        </div>
       </div>
-    </div>
-    <div class="jobti-comment-wrap">
-      <div class="jobti-comment-label">🎙️ 包子老师专属点评</div>
-      <div class="jobti-comment-text">${esc(displayComment)}</div>
     </div>
   </div></div>`;
 
