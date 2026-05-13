@@ -220,19 +220,42 @@ nav{
 }
 .ov-orb1{position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:rgba(255,255,255,.05);border-radius:50%;}
 .ov-orb2{position:absolute;bottom:-70px;left:-30px;width:220px;height:220px;background:rgba(255,255,255,.03);border-radius:50%;}
-/* 移动端截图引流二维码 */
+/* 移动端截图引流二维码 —— 行内底部布局，不遮挡文字 */
 .ov-qr{display:none;}
-@media(max-width:600px){
+@media(max-width:700px){
   .ov-qr{
-    display:block;position:absolute;right:.85rem;top:.85rem;z-index:4;
-    width:72px;background:rgba(255,255,255,.97);
-    border-radius:8px;padding:5px 5px 4px;
-    box-shadow:0 3px 14px rgba(0,0,0,.4);text-align:center;
+    display:flex;align-items:center;gap:10px;
+    margin-top:.9rem;
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:10px;padding:8px 12px;
+    position:static;width:auto;box-shadow:none;
   }
-  .ov-qr img{width:62px;height:62px;display:block;border-radius:3px;}
-  .ov-qr-lbl{font-size:8.5px;font-weight:700;color:#1e3a8a;margin-top:3px;letter-spacing:.02em;line-height:1.2;}
-  .ov-summary{padding-right:4.5rem;}
+  .ov-qr img{
+    width:52px;height:52px;display:block;flex-shrink:0;
+    border-radius:5px;background:#fff;padding:2px;
+  }
+  .ov-qr-lbl{
+    font-size:12px;font-weight:600;
+    color:rgba(255,255,255,.92);line-height:1.55;
+  }
+  .ov-qr-lbl em{display:block;font-style:normal;font-size:10px;color:rgba(255,255,255,.55);margin-top:2px;}
+  /* 文字区域不再受压缩 */
+  .ov-summary{padding-right:0;}
 }
+/* 导航栏 QR（移动端置顶栏右侧） */
+.nav-qr{display:none;}
+@media(max-width:700px){
+  nav{position:sticky;top:0;z-index:999;}
+  .nav-qr{
+    display:flex;align-items:center;gap:5px;flex-shrink:0;
+    background:#f8faff;border:1px solid #e2e8f0;
+    border-radius:8px;padding:4px 6px 4px 4px;
+    box-shadow:0 1px 6px rgba(37,99,235,.1);
+  }
+  .nav-qr img{width:36px;height:36px;display:block;border-radius:3px;}
+  .nav-qr-lbl{font-size:9px;font-weight:700;color:#1e3a8a;line-height:1.35;text-align:center;}
+}}
 .ov-inner{display:flex;align-items:flex-start;gap:2rem;position:relative;z-index:1;}
 .ov-ring{position:relative;width:100px;height:100px;flex-shrink:0;}
 .ov-ring svg{transform:rotate(-90deg);}
@@ -720,6 +743,11 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
       <div class="nav-tag">AI 简历诊断系统</div>
     </div>
   </div>
+  <!-- 移动端顶栏右侧QR码 -->
+  <div class="nav-qr">
+    <img src="qr-baozi.png" alt="扫码">
+    <div class="nav-qr-lbl">扫码<br>免费诊断</div>
+  </div>
 </nav>
 
 <div class="wrap">
@@ -813,10 +841,12 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
 
   <div class="ov-banner">
     <div class="ov-orb1"></div><div class="ov-orb2"></div>
-    <!-- 移动端截图引流QR码 -->
+    <!-- 移动端截图引流QR码（行内底部，不遮挡文字） -->
     <div class="ov-qr">
       <img src="qr-baozi.png" alt="扫码体验">
-      <div class="ov-qr-lbl">扫码<br>免费诊断</div>
+      <div class="ov-qr-lbl">扫码免费诊断你的简历
+        <em>包子老师 · 资深猎头 1v1</em>
+      </div>
     </div>
     <div class="ov-inner">
       <div class="ov-ring">
