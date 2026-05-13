@@ -220,6 +220,19 @@ nav{
 }
 .ov-orb1{position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:rgba(255,255,255,.05);border-radius:50%;}
 .ov-orb2{position:absolute;bottom:-70px;left:-30px;width:220px;height:220px;background:rgba(255,255,255,.03);border-radius:50%;}
+/* 移动端截图引流二维码 */
+.ov-qr{display:none;}
+@media(max-width:600px){
+  .ov-qr{
+    display:block;position:absolute;right:.85rem;top:.85rem;z-index:4;
+    width:72px;background:rgba(255,255,255,.97);
+    border-radius:8px;padding:5px 5px 4px;
+    box-shadow:0 3px 14px rgba(0,0,0,.4);text-align:center;
+  }
+  .ov-qr img{width:62px;height:62px;display:block;border-radius:3px;}
+  .ov-qr-lbl{font-size:8.5px;font-weight:700;color:#1e3a8a;margin-top:3px;letter-spacing:.02em;line-height:1.2;}
+  .ov-summary{padding-right:4.5rem;}
+}
 .ov-inner{display:flex;align-items:flex-start;gap:2rem;position:relative;z-index:1;}
 .ov-ring{position:relative;width:100px;height:100px;flex-shrink:0;}
 .ov-ring svg{transform:rotate(-90deg);}
@@ -242,9 +255,9 @@ nav{
 .radar-card{
   background:#fff;border:1px solid var(--border2);border-radius:var(--r24);
   padding:1.75rem;margin-bottom:1rem;
-  display:grid;grid-template-columns:420px 1fr;gap:1.5rem;align-items:center;
-  box-shadow:0 1px 12px rgba(0,0,0,.05);
-}
+  display:grid;grid-template-columns:minmax(0,420px) 1fr;gap:1.5rem;align-items:center;
+  box-shadow:0 1px 12px rgba(0,0,0,.05);overflow:hidden;}
+#radarSvg{width:100%;overflow:visible;}
 .radar-sec-title{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink4);margin-bottom:1.25rem;}
 .dim-list{display:flex;flex-direction:column;gap:.5rem;}
 .dim-row{display:flex;align-items:center;gap:8px;}
@@ -492,9 +505,9 @@ nav{
 
 /* 移动端：上下排列 */
 @media(max-width:600px){
-  .jobti-layout{flex-direction:column;}
-  .jobti-img-col{width:100%;height:200px;}
-  .jobti-img{object-position:top;}
+  .jobti-layout{flex-direction:column;gap:1.1rem;}
+  .jobti-img-col{width:100%;height:auto;border-radius:var(--r12);}
+   .jobti-img{height:auto;width:100%;object-fit:contain;max-height:320px;background:rgba(0,0,0,.15);}
   .jobti-icon-wrap{width:100%;height:160px;min-height:unset;}
 }
 
@@ -800,6 +813,11 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
 
   <div class="ov-banner">
     <div class="ov-orb1"></div><div class="ov-orb2"></div>
+    <!-- 移动端截图引流QR码 -->
+    <div class="ov-qr">
+      <img src="qr-baozi.png" alt="扫码体验">
+      <div class="ov-qr-lbl">扫码<br>免费诊断</div>
+    </div>
     <div class="ov-inner">
       <div class="ov-ring">
         <svg width="100" height="100" viewBox="0 0 100 100">
@@ -1008,7 +1026,8 @@ async function diagnose() {
   careerUnlocked = false; careerDataCache = null;
 
   // ── localStorage缓存：相同简历返回相同结果 ──
-  const cacheKey = 'diag_' + hashText(content);
+  const _cacheDay = new Date().toLocaleDateString('zh-CN',{timeZone:'Asia/Shanghai'}).replace(/\//g,'');
+  const cacheKey = 'diag_' + hashText(content) + '_' + _cacheDay;
   try {
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -1151,7 +1170,7 @@ rewrite 是给用户参考的改写示例，必须遵守以下规则：
 4. rewrite只改写结构和表达方式，数据坑位留给用户自己填写真实数字，不替用户"发明"数据。
 5. 如果原文已有数字，可以保留并在此基础上优化表达，不得修改原有数字。`;
 
-  const USER = `请诊断以下简历${ctx ? `（${ctx}）` : ''}：\n\n${content}`;
+  const USER = `【⚠️ 时间基准（必须严格遵守）：今天是${todayBJ}。请以此日期判断所有时间线：①此日期之前的毕业时间=已毕业；②实习/项目时间段若已在今天之前=正常历史经历；③只有结束时间晚于今天才可能是未来计划，且本身不构成问题。禁止使用其他日期假设。】\n\n请诊断以下简历${ctx ? `（${ctx}）` : ''}：\n\n${content}`;
 
   try {
     let raw = '';
@@ -1577,8 +1596,8 @@ function renderPriorityFixes(data) {
 
 // ── Radar SVG (fixed labels) ──
 function buildRadar(dims) {
-  const W=430, H=310, cx=215, cy=155, maxR=110, n=dims.length;
-  let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+  const W=420, H=300, cx=210, cy=150, maxR=102, n=dims.length;
+  let svg = `<svg width="100%" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;max-width:${W}px;margin:0 auto;">
   <defs>
     <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#2563eb;stop-opacity:0.22"/>
