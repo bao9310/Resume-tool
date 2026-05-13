@@ -742,11 +742,10 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
     onerror="this.parentNode.querySelector('.qr-float-placeholder').style.display='flex';this.style.display='none'">
   <div class="qr-float-placeholder" style="display:none">📱</div>
   <div class="qr-txt">
-    <span class="qr-line">包子老师</span><br>
-    <span class="qr-line">免费诊断</span><br>
-    <span class="qr-line">扫码咨询</span>
+    <span class="qr-line">扫码添加</span><br>
+    <span class="qr-line">包子老师</span>
   </div>
-  <div class="qr-sub">资深猎头 · 一对一<br>简历把脉</div>
+  <div class="qr-sub">资深求职导师 · 一对一诊断咨询<br>求职陪跑 · 上岸为止</div>
 </div>
 
 <!-- ── NAV ── -->
@@ -827,8 +826,8 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
   <div class="div">或直接粘贴简历文字</div>
   <textarea class="paste" id="resumeText" placeholder="将简历内容粘贴到这里……&#10;&#10;姓名 / 联系方式 / 籍贯&#10;&#10;教育背景&#10;XXXX大学 专业 学历 年份&#10;&#10;工作经历&#10;XX公司 职位 时间&#10;· 工作内容……"></textarea>
   <div class="frow">
-    <div class="fg"><label>目标岗位（可选）</label><input type="text" id="jobTarget" placeholder="如：产品经理、数据分析师"></div>
-    <div class="fg"><label>目标行业（可选）</label><input type="text" id="industryTarget" placeholder="如：互联网、金融、咨询"></div>
+    <div class="fg"><label>目标岗位（选填）</label><input type="text" id="jobTarget" placeholder="如：产品经理、数据分析师"></div>
+    <div class="fg"><label>目标行业（选填）</label><input type="text" id="industryTarget" placeholder="如：互联网、金融、咨询"></div>
   </div>
   <button class="submit-btn" id="submitBtn" onclick="diagnose()">
     <svg width="17" height="17" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="9" r="7.5"/><path d="M6 9l2 2 4-4"/></svg>
@@ -869,7 +868,7 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
       <!-- 移动端：与分值并排的QR码 -->
       <div class="ov-qr">
         <img src="qr-baozi.png" alt="扫码体验">
-        <div class="ov-qr-lbl">扫码免费<br>诊断简历<em>包子老师·猎头1v1</em></div>
+        <div class="ov-qr-lbl">扫码添加<br>包子老师<em>求职陪跑·上岸为止</em></div>
       </div>
       <div class="ov-info">
         <div class="ov-label">包子老师诊断评语</div>
@@ -1499,7 +1498,7 @@ function renderResult(data) {
           <div class="hook-title">没有项目经历？我们帮你从0到1打造</div>
           <div class="hook-sub">包子老师提供「作品化求职辅导」——结合你现有的实习经历，帮你提炼、包装出有含金量的项目作品，让简历真正立起来，让HR一眼记住你。</div>
         </div>
-        <div class="hook-qr-hint" onclick="showQrPopup()">了解服务</div>`;
+        <div class="hook-qr-hint" onclick="window.open('https://work.weixin.qq.com/ca/cawcde4142cce2641f','_blank')">立即咨询</div>`;
       container.appendChild(projHookEl);
     }
   });
@@ -1516,7 +1515,7 @@ function renderResult(data) {
       <div class="hook-title">知道问题在哪，才是改简历的第一步</div>
       <div class="hook-sub">看完这份诊断，如果你希望有人帮你逐句打磨、告诉你怎么改最有效——包子老师提供一对一简历修改服务，改完为止。</div>
     </div>
-    <div class="hook-qr-hint" onclick="showQrPopup()">扫码了解</div>`;
+    <div class="hook-qr-hint" onclick="window.open('https://work.weixin.qq.com/ca/cawcde4142cce2641f','_blank')">立即咨询</div>`;
   document.getElementById('pfixWrap').insertAdjacentElement('afterend', ovHook);
 
   // ── 逐条分析：中间插入钩子 + 底部钩子 ──
@@ -1531,7 +1530,7 @@ function renderResult(data) {
       <div class="hook-title">改了简历，不知道改得对不对？</div>
       <div class="hook-sub">包子老师提供「简历诊断+修改」一体化服务，猎头视角逐句把关，帮你写出真正能拿面试的简历。</div>
     </div>
-    <div class="hook-qr-hint" onclick="showQrPopup()">扫码咨询</div>`;
+    <div class="hook-qr-hint" onclick="window.open('https://work.weixin.qq.com/ca/cawcde4142cce2641f','_blank')">立即咨询</div>`;
   // 底部钩子
   const hookEl = document.createElement('div');
   hookEl.className = 'hook-bar';
@@ -1541,7 +1540,7 @@ function renderResult(data) {
       <div class="hook-title">简历只是求职的第一关，面试才是真正的淘汰场</div>
       <div class="hook-sub">很多人改完简历拿到面试，却在第一个问题就卡壳了。包子老师提供一对一面试陪跑，帮你把经历讲得有力量、让面试官记住你。</div>
     </div>
-    <div class="hook-qr-hint" onclick="showQrPopup()">扫码咨询</div>`;
+    <div class="hook-qr-hint" onclick="window.open('https://work.weixin.qq.com/ca/cawcde4142cce2641f','_blank')">立即咨询</div>`;
   issuesList.appendChild(hookEl);
   // 中间钩子延迟插入（等 issues 渲染完）
   setTimeout(() => {
@@ -1927,7 +1926,7 @@ function renderCareer(c) {
       <div class="hook-title">职业规划有了，执行才是关键</div>
       <div class="hook-sub">包子老师提供「作品化求职辅导」——不只改简历，帮你从头梳理经历，建立求职作品集，陪你一路走到offer。扫描二维码找包子老师免费诊断咨询。</div>
     </div>
-    <div class="hook-qr-hint">扫码了解 →</div>
+    <div class="hook-qr-hint" onclick="window.open('https://work.weixin.qq.com/ca/cawcde4142cce2641f','_blank')">立即咨询</div>
   </div>`;
 
   box.innerHTML = html;
