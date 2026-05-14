@@ -934,20 +934,51 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
   <div class="modal">
     <div class="modal-icon">🔓</div>
     <div class="modal-title">解锁完整职业规划</div>
-    <div class="modal-sub">扫码添加包子老师企业微信，系统自动发送<strong>激活码</strong>，输入即可免费解锁深度职业规划。</div>
-    <div style="text-align:center;margin:1rem 0 1.25rem;">
+
+    <!-- PC端：二维码 -->
+    <div id="unlockQrBlock" style="text-align:center;margin:1rem 0 1.25rem;">
+      <div style="font-size:12px;color:#64748b;margin-bottom:10px;font-weight:600;letter-spacing:.03em;">
+        📱 扫码添加包子老师企业微信，即可获取你的专属激活码
+      </div>
       <img src="qr-baozi.png" style="width:120px;height:120px;border-radius:10px;display:inline-block;border:3px solid #e2e8f0;" alt="扫码添加">
-      <div style="font-size:11.5px;color:#64748b;margin-top:8px;line-height:1.7;">① 扫码添加包子老师企微<br>② 收到自动发送的激活码<br>③ 输入下方解锁</div>
+      <div style="font-size:11.5px;color:#64748b;margin-top:8px;line-height:1.8;">
+        ① 扫码添加包子老师企微<br>
+        ② 自动收到你的<strong style="color:#2563eb">专属激活码</strong><br>
+        ③ 复制填入下方即可解锁
+      </div>
     </div>
+
+    <!-- 手机端：跳转按钮 -->
+    <div id="unlockMobileBlock" style="display:none;margin:1rem 0 1.25rem;">
+      <a href="https://work.weixin.qq.com/ca/cawcde4142cce2641f" target="_blank"
+        style="display:block;width:100%;padding:14px;background:linear-gradient(135deg,#07c160,#06ad56);
+        color:#fff;text-align:center;border-radius:12px;font-size:15px;font-weight:700;
+        text-decoration:none;box-shadow:0 4px 16px rgba(7,193,96,.35);margin-bottom:14px;">
+        📲 点击获取你的专属激活码
+      </a>
+      <div style="font-size:11.5px;color:#64748b;text-align:center;line-height:1.8;">
+        ① 点上方按钮添加包子老师企微<br>
+        ② 自动收到你的<strong style="color:#2563eb">专属激活码</strong><br>
+        ③ 复制填入下方即可解锁
+      </div>
+    </div>
+
+    <!-- 分隔线 -->
+    <div style="display:flex;align-items:center;gap:10px;margin:0 0 1rem;">
+      <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+      <span style="font-size:11px;color:#94a3b8;white-space:nowrap;">输入激活码解锁</span>
+      <div style="flex:1;height:1px;background:#e2e8f0;"></div>
+    </div>
+
     <div class="modal-field">
-      <label>激活码</label>
+      <label>你的专属激活码</label>
       <input type="text" id="unlockCode" placeholder="激活码（如 BZQZK9FM）" maxlength="8"
         style="text-transform:uppercase;letter-spacing:.18em;font-family:'Consolas',monospace;font-size:16px;"
         onkeydown="if(event.key==='Enter')verifyCode()">
     </div>
     <div id="unlockErr" style="display:none;color:#dc2626;font-size:12.5px;margin:-6px 0 10px;text-align:center;font-weight:600;"></div>
     <button class="modal-submit" id="unlockBtn" onclick="verifyCode()">验证并解锁 →</button>
-    <div class="modal-privacy">📌 激活码免费获取，添加企微后自动发送，无需人工等待</div>
+    <div class="modal-privacy">📌 激活码每人专属，每日自动更新，添加企微后秒发，无需等待</div>
   </div>
 </div>
 
@@ -2070,6 +2101,10 @@ let careerDataCache = null;
 let careerUnlocked = false;
 
 function showUnlockModal() {
+  // 手机端显示跳转按钮，PC端显示二维码
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.innerWidth <= 700;
+  document.getElementById('unlockQrBlock').style.display    = isMobile ? 'none'  : 'block';
+  document.getElementById('unlockMobileBlock').style.display = isMobile ? 'block' : 'none';
   document.getElementById('unlockModal').classList.add('show');
   document.getElementById('unlockErr').style.display = 'none';
   setTimeout(() => document.getElementById('unlockCode').focus(), 150);
