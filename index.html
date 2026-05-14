@@ -934,11 +934,20 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
   <div class="modal">
     <div class="modal-icon">🔓</div>
     <div class="modal-title">解锁完整职业规划</div>
-    <div class="modal-sub">包子老师为你定制的深度职业路径分析、企业推荐和求职建议，留下联系方式即可免费查看。</div>
-    <div class="modal-field"><label>你的姓名</label><input type="text" id="unlockName" placeholder="方便包子老师认识你"></div>
-    <div class="modal-field"><label>手机号码</label><input type="tel" id="unlockPhone" placeholder="如有问题方便联系你"></div>
-    <button class="modal-submit" onclick="submitUnlock()">立即解锁 →</button>
-    <div class="modal-privacy">📌 信息仅用于包子老师一对一跟进，不会公开或转售</div>
+    <div class="modal-sub">扫码添加包子老师企业微信，系统自动发送<strong>激活码</strong>，输入即可免费解锁深度职业规划。</div>
+    <div style="text-align:center;margin:1rem 0 1.25rem;">
+      <img src="qr-baozi.png" style="width:120px;height:120px;border-radius:10px;display:inline-block;border:3px solid #e2e8f0;" alt="扫码添加">
+      <div style="font-size:11.5px;color:#64748b;margin-top:8px;line-height:1.7;">① 扫码添加包子老师企微<br>② 收到自动发送的激活码<br>③ 输入下方解锁</div>
+    </div>
+    <div class="modal-field">
+      <label>激活码</label>
+      <input type="text" id="unlockCode" placeholder="输入企微自动发送的激活码" maxlength="24"
+        style="text-transform:uppercase;letter-spacing:.12em;font-family:'Consolas',monospace;font-size:15px;"
+        onkeydown="if(event.key==='Enter')verifyCode()">
+    </div>
+    <div id="unlockErr" style="display:none;color:#dc2626;font-size:12.5px;margin:-6px 0 10px;text-align:center;font-weight:600;"></div>
+    <button class="modal-submit" id="unlockBtn" onclick="verifyCode()">验证并解锁 →</button>
+    <div class="modal-privacy">📌 激活码免费获取，添加企微后自动发送，无需人工等待</div>
   </div>
 </div>
 
@@ -1117,7 +1126,8 @@ async function diagnose() {
   const key = CONFIG.provider === 'anthropic' ? CONFIG.anthropicKey : CONFIG.deepseekKey;
   if (CONFIG.provider !== 'proxy' && !key) { showErr('API Key 未配置'); return; }
   rawResumeText = content;
-  careerUnlocked = false; careerDataCache = null;
+  careerUnlocked = localStorage.getItem('career_unlocked') === '1';
+  careerDataCache = null;
 
   // ── localStorage缓存：相同简历返回相同结果 ──
   const _cacheDay = new Date().toLocaleDateString('zh-CN',{timeZone:'Asia/Shanghai'}).replace(/\//g,'');
@@ -1870,8 +1880,8 @@ function renderCareer(c) {
         <div class="lock-overlay">
           <div class="lock-icon">🔒</div>
           <div class="lock-title">完整职业规划待解锁</div>
-          <div class="lock-sub">包子老师亲自定制的深度职业路径分析<br>包含方向推荐、3阶段时间规划、企业推荐<br>留下联系方式，免费获取</div>
-          <button class="lock-btn" onclick="showUnlockModal()">免费解锁职业规划 →</button>
+          <div class="lock-sub">扫码添加包子老师企微<br>自动获取激活码，免费解锁</div>
+          <button class="lock-btn" onclick="showUnlockModal()">获取激活码 · 解锁职业规划 →</button>
         </div>
       </div>`;
     return;
@@ -2059,26 +2069,45 @@ let careerUnlocked = false;
 
 function showUnlockModal() {
   document.getElementById('unlockModal').classList.add('show');
-  setTimeout(() => document.getElementById('unlockName').focus(), 100);
+  document.getElementById('unlockErr').style.display = 'none';
+  setTimeout(() => document.getElementById('unlockCode').focus(), 150);
 }
 
-function submitUnlock() {
-  const name  = document.getElementById('unlockName').value.trim();
-  const phone = document.getElementById('unlockPhone').value.trim();
-  if (!name)  { alert('请填写你的姓名'); return; }
-  if (!phone) { alert('请填写手机号码'); return; }
-  // 推送到飞书
-  sendToFeishu('🔐 职业规划解锁 · 新客资', [
-    {label: '时间',     value: new Date().toLocaleString('zh-CN')},
-    {label: '姓名',     value: name},
-    {label: '手机号',   value: phone},
-    {label: '目标岗位', value: document.getElementById('jobTarget').value || '未填写'},
-    {label: '目标行业', value: document.getElementById('industryTarget').value || '未填写'},
-  ]);
-  document.getElementById('unlockModal').classList.remove('show');
-  careerUnlocked = true;
-  // 渲染完整内容
-  if (careerDataCache) renderCareer(careerDataCache);
+async function verifyCode() {
+  const rawCode = document.getElementById('unlockCode').value.trim();
+  const code = rawCode.toUpperCase();
+  if (!code) { showUnlockErr('请输入激活码'); return; }
+
+  const btn = document.getElementById('unlockBtn');
+  btn.disabled = true; btn.textContent = '验证中…';
+  document.getElementById('unlockErr').style.display = 'none';
+
+  try {
+    const verifyUrl = CONFIG.proxyUrl.replace(/\/+$/, '') + '/verify';
+    const r = await fetch(verifyUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ code })
+    });
+    const d = await r.json();
+    if (d.valid) {
+      localStorage.setItem('career_unlocked', '1');
+      document.getElementById('unlockModal').classList.remove('show');
+      careerUnlocked = true;
+      if (careerDataCache) renderCareer(careerDataCache);
+    } else {
+      showUnlockErr('激活码无效，请检查后重试 🔍');
+      document.getElementById('unlockCode').select();
+    }
+  } catch(e) {
+    showUnlockErr('网络错误，请稍后重试');
+  }
+  btn.disabled = false; btn.textContent = '验证并解锁 →';
+}
+
+function showUnlockErr(msg) {
+  const el = document.getElementById('unlockErr');
+  el.textContent = msg; el.style.display = 'block';
 }
 
 // 点弹窗背景关闭
