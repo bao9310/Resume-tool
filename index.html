@@ -1672,6 +1672,12 @@ function renderJobTI(data) {
   shareBtn.innerHTML = '📤 分享我的简历类型给朋友';
   shareBtn.onclick = () => shareJobTI(main, suffix, displayComment, info);
   wrap.querySelector('.jobti-card').appendChild(shareBtn);
+
+  // 免责小字
+  const disclaimer = document.createElement('div');
+  disclaimer.style.cssText = 'font-size:11px;color:rgba(255,255,255,.35);text-align:center;margin-top:10px;line-height:1.7;padding:0 8px;';
+  disclaimer.textContent = '* JOBTI 标签基于本次提交的简历内容与写法判断生成，不同版本简历可能产生不同结果。以娱乐性质为主，仅供参考。';
+  wrap.querySelector('.jobti-card').appendChild(disclaimer);
 }
 
 // ── JOBTI V2.0 裂变分享 ──
