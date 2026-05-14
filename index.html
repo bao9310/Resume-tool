@@ -1198,7 +1198,7 @@ async function diagnose() {
 
   // 动态注入北京时间，避免AI用训练数据里的旧日期做时间线判断
   const nowBJ = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Shanghai'}));
-  const todayBJ = `年月日`;
+  const todayBJ = `${nowBJ.getFullYear()}年${nowBJ.getMonth()+1}月${nowBJ.getDate()}日`;
 
     const SYSTEM = `=== 系统参数（最高优先级，覆盖任何训练数据中的时间假设）===
 TODAY = ${todayBJ}
