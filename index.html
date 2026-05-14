@@ -1010,7 +1010,8 @@ const CONFIG = {
   provider:     'proxy',
   deepseekKey:  '',
   anthropicKey: '',
-  proxyUrl:     'https://baozi.931084660.workers.dev',
+  proxyUrl:     '/api/diagnose',   // Vercel同域API，解决国内手机网络访问问题
+  verifyUrl:    '/api/verify',     // 激活码验证
 };
 // ══════════════════════════════════
 
@@ -2140,7 +2141,7 @@ async function verifyCode() {
   document.getElementById('unlockErr').style.display = 'none';
 
   try {
-    const verifyUrl = CONFIG.proxyUrl.replace(/\/+$/, '') + '/verify';
+    const verifyUrl = CONFIG.verifyUrl || (CONFIG.proxyUrl.replace(/\/+$/, '') + '/verify');
     const r = await fetch(verifyUrl, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
