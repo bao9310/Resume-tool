@@ -1343,7 +1343,28 @@ rewrite 是给用户参考的改写示例，必须遵守以下规则：
     if (CONFIG.provider === 'proxy') {
       const r = await fetch(CONFIG.proxyUrl, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({system: SYSTEM, user: USER}) });
       if (!r.ok) throw new Error(`代理错误 ${r.status}`);
-      const d = await r.json(); raw = d.content || d.text || '';
+      // 读取 SSE 流，累积 delta content
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '', content = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') continue;
+          try {
+            const p = JSON.parse(data);
+            const t = p.choices?.[0]?.delta?.content;
+            if (t) content += t;
+          } catch {}
+        }
+      }
+      raw = content;
     } else if (CONFIG.provider === 'anthropic') {
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method:'POST',
