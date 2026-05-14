@@ -1126,7 +1126,9 @@ async function diagnose() {
   const key = CONFIG.provider === 'anthropic' ? CONFIG.anthropicKey : CONFIG.deepseekKey;
   if (CONFIG.provider !== 'proxy' && !key) { showErr('API Key 未配置'); return; }
   rawResumeText = content;
-  careerUnlocked = localStorage.getItem('career_unlocked') === '1';
+  // 每次新简历诊断重置解锁状态（不同文档需重新输入当日激活码）
+  careerUnlocked = false;
+  sessionStorage.removeItem('career_unlock_token');
   careerDataCache = null;
 
   // ── localStorage缓存：相同简历返回相同结果 ──
@@ -2091,7 +2093,10 @@ async function verifyCode() {
     });
     const d = await r.json();
     if (d.valid) {
-      localStorage.setItem('career_unlocked', '1');
+      // 解锁成功：存入今日日期签名，当次诊断有效（换简历或隔天需重新输入）
+      const _bjDay = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'}));
+      const _dayStr = `${_bjDay.getFullYear()}${String(_bjDay.getMonth()+1).padStart(2,'0')}${String(_bjDay.getDate()).padStart(2,'0')}`;
+      sessionStorage.setItem('career_unlock_token', _dayStr);
       document.getElementById('unlockModal').classList.remove('show');
       careerUnlocked = true;
       if (careerDataCache) renderCareer(careerDataCache);
