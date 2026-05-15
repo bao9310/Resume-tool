@@ -1150,7 +1150,77 @@ function animProg(target, dur) {
   })();
 }
 
-const STEPS = ['正在读取简历结构…','分析工作经历与成就表达…','检查量化数据与关键词…','评估八维能力画像…','生成职业规划与修改建议…'];
+const STEPS = ['正在读取简历结构…','分析工作经历与成就表达…','检查量化数据与关键词…','评估八维能力画像…','整理诊断报告…'];
+
+// ── 职业规划独立请求（后台静默加载）──
+let careerFetchAbort = null;
+async function fetchCareer(userPrompt) {
+  if (careerFetchAbort) careerFetchAbort.abort();
+  careerFetchAbort = new AbortController();
+  const signal = careerFetchAbort.signal;
+
+  const nowBJ2 = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'}));
+  const today2 = `${nowBJ2.getFullYear()}年${nowBJ2.getMonth()+1}月${nowBJ2.getDate()}日`;
+
+  const SYS_CAREER = `你是顶级职业规划专家和猎头顾问包子老师（东北风格，幽默犀利）。今天是${today2}。
+根据提供的简历，生成职业规划。严格按以下JSON格式返回，不要有任何多余文字：
+{"career":{"overview":"3-4句综合评估，包子老师东北话风格","direction":"推荐职业发展方向名称","direction_reason":"2-3句说明推荐原因","short_term":{"title":"1-2年","content":"3-4句近期具体行动"},"mid_term":{"title":"3-5年","content":"3-4句中期发展路径"},"long_term":{"title":"5年以上","content":"2-3句长期愿景"},"skills":[{"name":"需补充技能","priority":"high|medium|low","reason":"一句话"}],"strengths":["核心优势1","核心优势2","核心优势3"],"risks":"2-3个风险与应对建议","industry_advice":"2-3句行业选择建议","detailed_advice":"3-4段深度建议，每段聚焦一个维度"}}`;
+
+  try {
+    // 显示职业规划加载态
+    const careerBox = document.getElementById('careerContent');
+    if (careerBox && !careerDataCache) {
+      careerBox.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:#64748b">
+        <div style="font-size:2rem;margin-bottom:.75rem">⏳</div>
+        <div style="font-size:14px;font-weight:600">职业规划生成中…</div>
+        <div style="font-size:12px;margin-top:.4rem;color:#94a3b8">约需 15-30 秒，可先查看上方诊断结果</div>
+      </div>`;
+    }
+
+    const reqOpts = { method:'POST', headers:{'Content-Type':'application/json'}, signal,
+      body: JSON.stringify({system: SYS_CAREER, user: userPrompt}) };
+
+    function parseLine(line) {
+      if (!line.startsWith('data: ')) return '';
+      const d = line.slice(6).trim();
+      if (!d || d==='[DONE]') return '';
+      try { const p=JSON.parse(d); return p.choices?.[0]?.delta?.content||''; } catch{ return ''; }
+    }
+    let content='';
+    const r = await fetch(CONFIG.proxyUrl, reqOpts);
+    if (!r.ok) return;
+    if (r.body && typeof r.body.getReader==='function') {
+      const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
+      while(true){
+        const {done,value}=await reader.read(); if(done) break;
+        buf+=dec.decode(value,{stream:true});
+        const lines=buf.split('\n'); buf=lines.pop();
+        for(const line of lines) content+=parseLine(line);
+      }
+      if(buf) content+=parseLine(buf);
+    } else {
+      const text=await r.text();
+      for(const line of text.split('\n')) content+=parseLine(line);
+    }
+    if (!content.trim()) return;
+    const d = parseAI(content);
+    if (d && d.career) {
+      renderCareer(d.career);
+      // 同步到缓存
+      if (diagnosisData) { diagnosisData.career = d.career; try{ const k=Object.keys(localStorage).find(k=>k.startsWith('diag_')&&localStorage.getItem(k)); if(k) localStorage.setItem(k, JSON.stringify(diagnosisData)); }catch{} }
+    }
+  } catch(e) {
+    if (e.name==='AbortError') return;
+    // 后台失败不打扰用户，只是职业规划tab显示降级提示
+    const careerBox = document.getElementById('careerContent');
+    if (careerBox && !careerDataCache) {
+      careerBox.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:#64748b">
+        <div style="font-size:2rem;margin-bottom:.75rem">⚠️</div>
+        <div style="font-size:13px">职业规划加载失败，请重新诊断</div>
+      </div>`;
+    }
+  }
+}
 
 async function diagnose() {
   const content = document.getElementById('resumeText').value.trim() || extractedText.trim();
@@ -1226,9 +1296,9 @@ TODAY = ${todayBJ}
 
 ### 第二步：在档位内选主类型（选1个最匹配的）
 各类型画像：
-装X档 - GOAT：名校+大厂+好绩点+有数据项目，HR读完想打电话 | 六边形战士：六个雷达维度全85+，无明显短板 | 稀缺鸟：细分赛道有真东西（独立项目/作品集/自媒体），百人内的稀缺画像 | 绩点天花板：GPA3.9+奖学金竞赛，同时有不错实习 | 大厂老炮：字节/腾讯/阿里/美团两家以上，每段4个月以上有真产出 | 海归回锅肉：境外名校+国内大厂实习，中西合璧 | 斜杠天才：学业+实习+副业+作品都能打 | 黑马选手：双非但每段实习数据扎实表达精准
-中性档 - CEO崽：实习title写得像独角兽创始人（战略合伙人/核心成员），公司其实3-5人 | 牛逼崽：大三但80%动词是「主导/统筹/独立完成/从0到1」 | 黑话十级：大厂黑话「赋能/闭环/抓手/颗粒度」满篇，读完不知具体做了啥 | 海王崽：同一份简历投了产品/运营/市场/咨询/投行6个不同岗位 | 凡尔赛：内容其实不错但措辞带凡尔赛味「不小心拿了国奖」 | 数字狂魔：数字夸张到HR不敢信，实习两个月写「触达500万」 | 颜值担当：排版完美但内容稀薄，擅长PPT但经历空 | 大厂集邮：四段大厂实习但每段只待1-2个月 | 绩点战神：GPA3.9+但只有水社团没有实习 | ALL-IN型：简历完全为一家公司定制没有Plan B | AI浓度爆表：句式工整结构完美但一看就是AI生成没经过自己脑子 | 跨界选手：文科转互联网有证书但没作品支撑故事没讲圆 | 实习收集者：6段实习每段2个月看起来积极但HR担心坐不住 | 学生会精英：校园title拿满但实习只有1段且很水
-求救档 - 白纸选手：没实习没项目没获奖，简历半页纸内容空空 | 留白派：每段实习只有一行「参与调研/协助活动/跟进进度」 | 迷茫人：大四还没方向，电商/考研/Python/新媒体都写一点都很浅 | 形容词大户：自我评价全是「认真负责积极向上抗压能力强」HR直接跳过 | 时光机选手：word老模板+证件照+档案格式，停留在2010年 | 已读不回选手：改了6版越改越像AI，投了80家0回复已躺平 | 复读机：三段实习内容雷同动词重复看不出成长 | GAP少年：中间空了一年简历遮遮掩掩反而引发HR怀疑
+装X档 - GOAT：名校+大厂+好绩点+有数据项目 | 六边形战士：六维全85+无短板 | 稀缺鸟：细分赛道有独立作品/自媒体 | 绩点天花板：GPA3.9+奖学金+实习 | 大厂老炮：字节/腾讯/阿里/美团2家+有真产出 | 海归回锅肉：境外名校+国内大厂 | 斜杠天才：学业+实习+副业+作品全能 | 黑马选手：双非但数据扎实表达精准
+中性档 - CEO崽：title写得像创始人，公司其实3-5人 | 牛逼崽：大三80%动词是「主导/从0到1」 | 黑话十级：赋能/闭环/抓手满篇读完不知做了啥 | 海王崽：同简历投6个不同性质岗位 | 凡尔赛：内容不错但措辞凡尔赛 | 数字狂魔：数字夸张HR不敢信 | 颜值担当：排版完美内容稀薄 | 大厂集邮：四段大厂每段1-2月 | 绩点战神：GPA3.9+但无实习 | ALL-IN型：简历完全为一家定制 | AI浓度爆表：句式工整但明显AI生成 | 跨界选手：文科转互联网有证无作品 | 实习收集者：6段实习每段2月 | 学生会精英：校园title满但实习水
+求救档 - 白纸选手：没实习没项目没获奖 | 留白派：每段实习只一行「参与协助跟进」 | 迷茫人：大四啥都写一点都很浅 | 形容词大户：「认真负责积极向上」HR直接跳过 | 时光机选手：老模板+证件照停留在2010年 | 已读不回选手：改了6版投了80家0回复 | 复读机：三段实习内容雷同看不出成长 | GAP少年：中间空了一年遮遮掩掩
 
 ### 第三步：匹配后缀
 - 初代：只在1-2处体现该特征，问题不严重
@@ -1290,7 +1360,7 @@ jobti_tagline必须引用简历中的具体细节（具体公司名/具体title/
 
 请对简历进行全面诊断，严格按以下JSON格式返回，不要有任何多余文字：
 
-{"score":数字,"summary":"包子老师风格总评（2-3句，东北话，幽默犀利，结合简历具体情况）","baozi_comment":"包子老师总评（3-5句，东北话+比喻，先说一个亮点再直击最大问题，要具体说到简历里的某个细节，不能泛泛而谈）","jobti_main":"主类型名称（如：CEO崽）","jobti_suffix":"后缀（如：集邮款）","jobti_tagline":"引用简历具体细节的个性化点评（东北话，1-2句，埋汰但向着用户）","key_advantage":"最大竞争优势（10字内）","urgent_fix":"最紧迫修改项（10字内）","key_skill":"核心能力标签（8字内）","priority_fixes":[{"level":"P0","content":"立即要做的具体修改（20字内）"},{"level":"P1","content":"建议优化项（20字内）"},{"level":"P2","content":"可以考虑的改进（20字内）"}],"dimensions":[{"name":"成就量化","score":数字,"desc":"简短说明"},{"name":"表达力度","score":数字,"desc":"简短说明"},{"name":"结构完整","score":数字,"desc":"简短说明"},{"name":"关键词覆盖","score":数字,"desc":"简短说明"},{"name":"逻辑清晰","score":数字,"desc":"简短说明"},{"name":"成长轨迹","score":数字,"desc":"简短说明"},{"name":"差异竞争力","score":数字,"desc":"简短说明"},{"name":"岗位匹配","score":数字,"desc":"简短说明"}],"issues":[{"id":"issue_1","severity":"high|medium|low","title":"10字内","location":"位置","original":"原文5-30字","problem":"分析2-3句","suggestion":"建议1-2句","rewrite":"参考文案"}],"career":{"overview":"3-4句深度评估","direction":"推荐方向名称","direction_reason":"2-3句具体分析","short_term":{"title":"1-2年","content":"3-4句具体行动"},"mid_term":{"title":"3-5年","content":"3-4句发展路径"},"long_term":{"title":"5年以上","content":"2-3句愿景"},"skills":[{"name":"技能","priority":"high|medium|low","reason":"一句话"}],"strengths":["优势1","优势2","优势3"],"risks":"2-3个风险与应对","industry_advice":"2-3句行业建议","detailed_advice":"3-4段深度建议，每段聚焦一个维度"},"annotated_resume":"完整简历，问题处用===ISSUE_START:issue_1:high===和===ISSUE_END===包裹"}
+{"score":数字,"summary":"包子老师风格总评（2-3句，东北话，幽默犀利，结合简历具体情况）","baozi_comment":"包子老师总评（3-5句，东北话+比喻，先说一个亮点再直击最大问题，要具体说到简历里的某个细节，不能泛泛而谈）","jobti_main":"主类型名称（如：CEO崽）","jobti_suffix":"后缀（如：集邮款）","jobti_tagline":"引用简历具体细节的个性化点评（东北话，1-2句，埋汰但向着用户）","key_advantage":"最大竞争优势（10字内）","urgent_fix":"最紧迫修改项（10字内）","key_skill":"核心能力标签（8字内）","priority_fixes":[{"level":"P0","content":"立即要做的具体修改（20字内）"},{"level":"P1","content":"建议优化项（20字内）"},{"level":"P2","content":"可以考虑的改进（20字内）"}],"dimensions":[{"name":"成就量化","score":数字,"desc":"简短说明"},{"name":"表达力度","score":数字,"desc":"简短说明"},{"name":"结构完整","score":数字,"desc":"简短说明"},{"name":"关键词覆盖","score":数字,"desc":"简短说明"},{"name":"逻辑清晰","score":数字,"desc":"简短说明"},{"name":"成长轨迹","score":数字,"desc":"简短说明"},{"name":"差异竞争力","score":数字,"desc":"简短说明"},{"name":"岗位匹配","score":数字,"desc":"简短说明"}],"issues":[{"id":"issue_1","severity":"high|medium|low","title":"10字内","location":"位置","original":"原文5-30字","problem":"分析2-3句","suggestion":"建议1-2句","rewrite":"参考文案"}]}
 
 ⚠️ 【项目经历检测，必须执行】：
 判断流程分两步，缺一不可：
@@ -1307,15 +1377,7 @@ jobti_tagline必须引用简历中的具体细节（具体公司名/具体title/
 ⚠️ 【分析完整性要求，极其重要】：
 在生成JSON之前，必须完整阅读简历的每一个章节：个人信息、教育经历、所有工作/实习经历（每一段都要看）、项目经历、技能特长、自我评价、证书奖项等。一段都不能跳过，每段经历都要纳入分析。
 
-找出6-12个重要问题（high至少2，medium至少2）。问题要覆盖简历的不同部分，不要只盯着某一段。priority_fixes中P0填2-3条最紧迫修改，P1填2条建议优化，P2填1-2条可以考虑的改进。
-
-⚠️ annotated_resume 极其重要：
-- 必须包含简历的【完整原文】，从头到尾，一个字都不能省略，不能用省略号代替
-- issues 中每一条问题对应的原文，必须在 annotated_resume 中用标记括起来，不能遗漏
-- 标记格式严格：===ISSUE_START:issue_1:high===有问题的原文内容===ISSUE_END===
-- issue id 要和 issues 数组里的 id 完全一致（如 issue_1, issue_2…）
-- 标记只括原文中有问题的那部分词句，不要把整段都括进去
-- 如果简历较长，career字段可以适当精简，但annotated_resume和issues必须完整
+找出5-8个最重要问题（high至少2，medium至少2），集中在最影响求职的核心问题，不要凑数。priority_fixes中P0填2条最紧迫修改，P1填1-2条建议优化，P2填1条可考虑改进。issues中的original字段必须是简历原文的精确复制（5-20字），便于系统定位原文位置。
 
 ⚠️ 【参考文案（rewrite）写作规则，极其重要】：
 rewrite 是给用户参考的改写示例，必须遵守以下规则：
@@ -1350,6 +1412,7 @@ rewrite 是给用户参考的改写示例，必须遵守以下规则：
       }
 
       // 读取响应体（流式或全量），返回累积的 SSE content
+      const loadingTextEl = document.getElementById('loadingText');
       async function readProxyResponse(resp) {
         let content = '';
         if (resp.body && typeof resp.body.getReader === 'function') {
@@ -1364,6 +1427,13 @@ rewrite 是给用户参考的改写示例，必须遵守以下规则：
               const lines = buf.split('\n');
               buf = lines.pop();
               for (const line of lines) content += parseSseLine(line);
+              // 实时进度反馈：让用户看到 AI 在持续生成
+              if (loadingTextEl && content.length > 50) {
+                const chars = content.length;
+                const stage = chars < 300 ? '正在分析简历结构…' : chars < 700 ? '评估工作经历与量化数据…' : chars < 1200 ? '生成问题诊断与建议…' : '整理诊断报告…';
+                loadingTextEl.textContent = stage;
+                animProg(Math.min(88, 20 + Math.round(chars / 20)), 80);
+              }
             }
           } catch (streamErr) {
             // 流中途断开：若已有内容则尝试继续解析，否则上抛
@@ -1419,6 +1489,8 @@ rewrite 是给用户参考的改写示例，必须遵守以下规则：
     diagnosisData = parseAI(raw);
     try { localStorage.setItem(cacheKey, JSON.stringify(diagnosisData)); } catch(e) {}
     renderResult(diagnosisData);
+    // 主请求完成后，后台异步加载职业规划（不阻塞用户查看主结果）
+    fetchCareer(USER);
   } catch (e) {
     clearInterval(st); showErr('诊断失败：' + e.message);
     console.error(e);
@@ -1976,7 +2048,27 @@ function escLine(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 // ── Career planning ──
 function renderCareer(c) {
-  if (!c) return;
+  if (!c) {
+    // career 数据还未加载时，先渲染锁定占位态（让用户知道该功能存在）
+    const box = document.getElementById('careerContent');
+    if (box && !box.innerHTML.trim()) {
+      box.innerHTML = `<div class="career-lock">
+        <div class="lock-blur">
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:1.5rem;margin-bottom:.75rem">
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">综合评估</div>
+            <div style="font-size:13px;color:#334155;line-height:1.9">包子老师综合评估内容将在解锁后展示……职业发展方向建议、深度规划路径、技能提升清单……</div>
+          </div>
+        </div>
+        <div class="lock-overlay">
+          <div class="lock-icon">🔒</div>
+          <div class="lock-title">完整职业规划待解锁</div>
+          <div class="lock-sub">扫码添加包子老师企微<br>自动获取激活码，免费解锁</div>
+          <button class="lock-btn" onclick="showUnlockModal()">获取激活码 · 解锁职业规划 →</button>
+        </div>
+      </div>`;
+    }
+    return;
+  }
   careerDataCache = c;
   const box = document.getElementById('careerContent');
 
