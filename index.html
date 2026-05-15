@@ -1341,10 +1341,7 @@ rewrite 是给用户参考的改写示例，必须遵守以下规则：
   try {
     let raw = '';
     if (CONFIG.provider === 'proxy') {
-      const r = await fetch(CONFIG.proxyUrl, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({system: SYSTEM, user: USER}) });
-      if (!r.ok) throw new Error(`代理错误 ${r.status}`);
-
-      // 解析 SSE 行，累积 delta.content
+      // 解析单行 SSE，返回 delta.content 文本
       function parseSseLine(line) {
         if (!line.startsWith('data: ')) return '';
         const data = line.slice(6).trim();
@@ -1352,29 +1349,52 @@ rewrite 是给用户参考的改写示例，必须遵守以下规则：
         try { const p = JSON.parse(data); return p.choices?.[0]?.delta?.content || ''; } catch { return ''; }
       }
 
-      let content = '';
-      // 优先用流式读取；微信 WebView 等不支持 ReadableStream 时自动降级为全量读取
-      if (r.body && typeof r.body.getReader === 'function') {
-        const reader = r.body.getReader();
-        const decoder = new TextDecoder();
-        let buf = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += decoder.decode(value, { stream: true });
-          const lines = buf.split('\n');
-          buf = lines.pop(); // 保留未完成的行继续拼接
-          for (const line of lines) content += parseSseLine(line);
+      // 读取响应体（流式或全量），返回累积的 SSE content
+      async function readProxyResponse(resp) {
+        let content = '';
+        if (resp.body && typeof resp.body.getReader === 'function') {
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = '';
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buf += decoder.decode(value, { stream: true });
+              const lines = buf.split('\n');
+              buf = lines.pop();
+              for (const line of lines) content += parseSseLine(line);
+            }
+          } catch (streamErr) {
+            // 流中途断开：若已有内容则尝试继续解析，否则上抛
+            if (!content.trim()) throw streamErr;
+          }
+          if (buf) content += parseSseLine(buf);
+        } else {
+          // 降级：不支持流的浏览器（部分微信 WebView）
+          const text = await resp.text();
+          for (const line of text.split('\n')) content += parseSseLine(line);
         }
-        // 流结束后处理 buf 中残留的最后一行（末尾无 \n 时）
-        if (buf) content += parseSseLine(buf);
-      } else {
-        // 降级：一次性读取全部文本（不支持流的浏览器）
-        const text = await r.text();
-        for (const line of text.split('\n')) content += parseSseLine(line);
+        return content;
       }
 
-      if (!content.trim()) throw new Error('AI 未返回内容，请重试');
+      // 带一次自动重试的请求（应对网络抖动 / iOS Load failed）
+      const reqOpts = { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({system: SYSTEM, user: USER}) };
+      let content = '';
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const r = await fetch(CONFIG.proxyUrl, reqOpts);
+          if (!r.ok) throw new Error(`代理错误 ${r.status}`);
+          content = await readProxyResponse(r);
+          if (content.trim()) break; // 成功拿到内容，退出重试
+          if (attempt === 2) throw new Error('AI 未返回内容，请重试');
+        } catch (e) {
+          if (attempt === 2) throw e; // 两次都失败，上抛
+          // 第一次失败等 800ms 再试
+          await new Promise(res => setTimeout(res, 800));
+        }
+      }
+
       raw = content;
     } else if (CONFIG.provider === 'anthropic') {
       const r = await fetch('https://api.anthropic.com/v1/messages', {

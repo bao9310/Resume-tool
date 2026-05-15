@@ -67,14 +67,17 @@ export default async function handler(req) {
     });
   }
 
-  // 直接透传 SSE 流给前端，不缓冲，不超时
+  // 直接透传流给前端
+  // ⚠️ 不能用 text/event-stream：iOS Safari / WebKit 收到该 Content-Type 时
+  //    fetch() 会与 EventSource 实现冲突，直接抛 "Load failed"
+  //    改用 text/plain 前端照样可以按行解析 SSE 格式，行为完全一致
   return new Response(upstream.body, {
     status: 200,
     headers: {
       ...cors,
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'X-Accel-Buffering': 'no',
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-cache, no-store',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 }
