@@ -1167,16 +1167,8 @@ async function fetchCareer(userPrompt) {
 {"career":{"overview":"3-4句综合评估，包子老师东北话风格","direction":"推荐职业发展方向名称","direction_reason":"2-3句说明推荐原因","short_term":{"title":"1-2年","content":"3-4句近期具体行动"},"mid_term":{"title":"3-5年","content":"3-4句中期发展路径"},"long_term":{"title":"5年以上","content":"2-3句长期愿景"},"skills":[{"name":"需补充技能","priority":"high|medium|low","reason":"一句话"}],"strengths":["核心优势1","核心优势2","核心优势3"],"risks":"2-3个风险与应对建议","industry_advice":"2-3句行业选择建议","detailed_advice":"3-4段深度建议，每段聚焦一个维度"}}`;
 
   try {
-    // 显示职业规划加载态
-    const careerBox = document.getElementById('careerContent');
-    if (careerBox && !careerDataCache) {
-      careerBox.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:#64748b">
-        <div style="font-size:2rem;margin-bottom:.75rem">⏳</div>
-        <div style="font-size:14px;font-weight:600">职业规划生成中…</div>
-        <div style="font-size:12px;margin-top:.4rem;color:#94a3b8">约需 15-30 秒，可先查看上方诊断结果</div>
-      </div>`;
-    }
-
+    // ⚠️ 不在这里改 careerContent 的 innerHTML：
+    //    lock gate 需要一直显示让用户可以点击解锁，不能被 loading spinner 覆盖
     const reqOpts = { method:'POST', headers:{'Content-Type':'application/json'}, signal,
       body: JSON.stringify({system: SYS_CAREER, user: userPrompt}) };
 
@@ -1211,12 +1203,14 @@ async function fetchCareer(userPrompt) {
     }
   } catch(e) {
     if (e.name==='AbortError') return;
-    // 后台失败不打扰用户，只是职业规划tab显示降级提示
-    const careerBox = document.getElementById('careerContent');
-    if (careerBox && !careerDataCache) {
-      careerBox.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:#64748b">
+    // 后台静默失败，不覆盖 lock gate，不打扰用户
+    // 若用户已解锁且 careerDataCache 仍为空，则在职业规划区显示重试提示
+    if (careerUnlocked && !careerDataCache) {
+      const careerBox = document.getElementById('careerContent');
+      if (careerBox) careerBox.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:#64748b">
         <div style="font-size:2rem;margin-bottom:.75rem">⚠️</div>
-        <div style="font-size:13px">职业规划加载失败，请重新诊断</div>
+        <div style="font-size:13px;font-weight:600">职业规划加载失败</div>
+        <div style="font-size:12px;margin-top:.4rem;color:#94a3b8">请重新诊断简历，即可获取职业规划</div>
       </div>`;
     }
   }
@@ -1296,9 +1290,9 @@ TODAY = ${todayBJ}
 
 ### 第二步：在档位内选主类型（选1个最匹配的）
 各类型画像：
-装X档 - GOAT：名校+大厂+好绩点+有数据项目 | 六边形战士：六维全85+无短板 | 稀缺鸟：细分赛道有独立作品/自媒体 | 绩点天花板：GPA3.9+奖学金+实习 | 大厂老炮：字节/腾讯/阿里/美团2家+有真产出 | 海归回锅肉：境外名校+国内大厂 | 斜杠天才：学业+实习+副业+作品全能 | 黑马选手：双非但数据扎实表达精准
-中性档 - CEO崽：title写得像创始人，公司其实3-5人 | 牛逼崽：大三80%动词是「主导/从0到1」 | 黑话十级：赋能/闭环/抓手满篇读完不知做了啥 | 海王崽：同简历投6个不同性质岗位 | 凡尔赛：内容不错但措辞凡尔赛 | 数字狂魔：数字夸张HR不敢信 | 颜值担当：排版完美内容稀薄 | 大厂集邮：四段大厂每段1-2月 | 绩点战神：GPA3.9+但无实习 | ALL-IN型：简历完全为一家定制 | AI浓度爆表：句式工整但明显AI生成 | 跨界选手：文科转互联网有证无作品 | 实习收集者：6段实习每段2月 | 学生会精英：校园title满但实习水
-求救档 - 白纸选手：没实习没项目没获奖 | 留白派：每段实习只一行「参与协助跟进」 | 迷茫人：大四啥都写一点都很浅 | 形容词大户：「认真负责积极向上」HR直接跳过 | 时光机选手：老模板+证件照停留在2010年 | 已读不回选手：改了6版投了80家0回复 | 复读机：三段实习内容雷同看不出成长 | GAP少年：中间空了一年遮遮掩掩
+装X档 - GOAT：名校+大厂+好绩点+有数据项目，HR读完想打电话 | 六边形战士：六个雷达维度全85+，无明显短板 | 稀缺鸟：细分赛道有真东西（独立项目/作品集/自媒体），百人内的稀缺画像 | 绩点天花板：GPA3.9+奖学金竞赛，同时有不错实习 | 大厂老炮：字节/腾讯/阿里/美团两家以上，每段4个月以上有真产出 | 海归回锅肉：境外名校+国内大厂实习，中西合璧 | 斜杠天才：学业+实习+副业+作品都能打 | 黑马选手：双非但每段实习数据扎实表达精准
+中性档 - CEO崽：实习title写得像独角兽创始人（战略合伙人/核心成员），公司其实3-5人 | 牛逼崽：大三但80%动词是「主导/统筹/独立完成/从0到1」 | 黑话十级：大厂黑话「赋能/闭环/抓手/颗粒度」满篇，读完不知具体做了啥 | 海王崽：同一份简历投了产品/运营/市场/咨询/投行6个不同岗位 | 凡尔赛：内容其实不错但措辞带凡尔赛味「不小心拿了国奖」 | 数字狂魔：数字夸张到HR不敢信，实习两个月写「触达500万」 | 颜值担当：排版完美但内容稀薄，擅长PPT但经历空 | 大厂集邮：四段大厂实习但每段只待1-2个月 | 绩点战神：GPA3.9+但只有水社团没有实习 | ALL-IN型：简历完全为一家公司定制没有Plan B | AI浓度爆表：句式工整结构完美但一看就是AI生成没经过自己脑子 | 跨界选手：文科转互联网有证书但没作品支撑故事没讲圆 | 实习收集者：6段实习每段2个月看起来积极但HR担心坐不住 | 学生会精英：校园title拿满但实习只有1段且很水
+求救档 - 白纸选手：没实习没项目没获奖，简历半页纸内容空空 | 留白派：每段实习只有一行「参与调研/协助活动/跟进进度」 | 迷茫人：大四还没方向，电商/考研/Python/新媒体都写一点都很浅 | 形容词大户：自我评价全是「认真负责积极向上抗压能力强」HR直接跳过 | 时光机选手：word老模板+证件照+档案格式，停留在2010年 | 已读不回选手：改了6版越改越像AI，投了80家0回复已躺平 | 复读机：三段实习内容雷同动词重复看不出成长 | GAP少年：中间空了一年简历遮遮掩掩反而引发HR怀疑
 
 ### 第三步：匹配后缀
 - 初代：只在1-2处体现该特征，问题不严重
@@ -1377,7 +1371,7 @@ jobti_tagline必须引用简历中的具体细节（具体公司名/具体title/
 ⚠️ 【分析完整性要求，极其重要】：
 在生成JSON之前，必须完整阅读简历的每一个章节：个人信息、教育经历、所有工作/实习经历（每一段都要看）、项目经历、技能特长、自我评价、证书奖项等。一段都不能跳过，每段经历都要纳入分析。
 
-找出5-8个最重要问题（high至少2，medium至少2），集中在最影响求职的核心问题，不要凑数。priority_fixes中P0填2条最紧迫修改，P1填1-2条建议优化，P2填1条可考虑改进。issues中的original字段必须是简历原文的精确复制（5-20字），便于系统定位原文位置。
+找出6-10个重要问题（high至少2，medium至少2），集中在最影响求职的核心问题，覆盖简历不同部分，不要凑数。priority_fixes中P0填2-3条最紧迫修改，P1填2条建议优化，P2填1-2条可考虑改进。issues中的original字段必须是简历原文的精确复制（5-25字），便于系统自动定位原文位置。
 
 ⚠️ 【参考文案（rewrite）写作规则，极其重要】：
 rewrite 是给用户参考的改写示例，必须遵守以下规则：
@@ -2313,7 +2307,17 @@ async function verifyCode() {
       sessionStorage.setItem('career_unlock_token', _dayStr);
       document.getElementById('unlockModal').classList.remove('show');
       careerUnlocked = true;
-      if (careerDataCache) renderCareer(careerDataCache);
+      if (careerDataCache) {
+        renderCareer(careerDataCache);
+      } else {
+        // career 数据还在后台加载中，显示等待提示；fetchCareer 完成后会自动调用 renderCareer
+        const careerBox = document.getElementById('careerContent');
+        if (careerBox) careerBox.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:#64748b">
+          <div style="font-size:2rem;margin-bottom:.75rem">⏳</div>
+          <div style="font-size:14px;font-weight:600">职业规划生成中…</div>
+          <div style="font-size:12px;margin-top:.4rem;color:#94a3b8">AI 正在为你定制规划，请稍候片刻</div>
+        </div>`;
+      }
     } else {
       showUnlockErr('激活码无效，请检查后重试 🔍');
       document.getElementById('unlockCode').select();

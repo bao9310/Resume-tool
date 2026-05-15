@@ -48,7 +48,7 @@ export default async function handler(req) {
     },
     body: JSON.stringify({
       model: 'deepseek-chat',
-      max_tokens: 4000,
+      max_tokens: 5000,
       temperature: 0,
       stream: true,
       response_format: { type: 'json_object' },
