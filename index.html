@@ -1002,7 +1002,7 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
   <span class="qb-tag">📲 长按识别二维码</span>
 </div>
 
-<footer>包子求职 · 简历 AI 诊断系统 · 数据仅在您的浏览器内处理，不上传至任何服务器<br>&copy; 2026 包子求职 · Powered by DeepSeek AI</footer>
+<footer>包子求职 · 简历 AI 诊断系统 · 简历内容仅用于本次 AI 诊断与服务跟进，不会公开展示或出售<br>&copy; 2026 包子求职 · Powered by DeepSeek AI</footer>
 
 <script>
 // ══════════════════════════════════
@@ -1012,6 +1012,7 @@ const CONFIG = {
   anthropicKey: '',
   proxyUrl:     '/api/diagnose',   // Vercel同域API，解决国内手机网络访问问题
   verifyUrl:    '/api/verify',     // 激活码验证
+  notifyUrl:    '/api/notify',     // 客资通知，走服务端代理避免暴露Webhook
 };
 // ══════════════════════════════════
 
@@ -2239,19 +2240,17 @@ function getReason(co){
   return '岗位与你的专业背景和职业方向匹配';
 }
 
-// ── 飞书推送（直连，GitHub Pages为HTTPS来源可正常发送）──
-const FEISHU_HOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/db88e407-cf4d-4d61-a432-c6525aca3ae1';
-
-function sendToFeishu(title, fields) {
+// ── 客资通知：走服务端代理，避免在前端暴露飞书 Webhook ──
+function sendLeadNotify(title, fields) {
   const lines = fields.map(f => `【${f.label}】${f.value}`).join('\n');
   const text = `${title}\n${'─'.repeat(24)}\n${lines}\n${'─'.repeat(24)}`;
-  fetch(FEISHU_HOOK, {
+  fetch(CONFIG.notifyUrl, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ msg_type: 'text', content: { text } })
+    body: JSON.stringify({ text, fields })
   }).then(r => r.json()).then(d => {
-    if (d.code !== 0) console.warn('飞书推送异常:', d);
-  }).catch(e => console.warn('飞书推送失败:', e));
+    if (!d.ok) console.warn('客资通知异常:', d);
+  }).catch(e => console.warn('客资通知失败:', e));
 }
 
 // 诊断开始时推简历摘要
@@ -2259,7 +2258,7 @@ function pushDiagnosisLead(resumeText, job, ind) {
   const phone   = (resumeText.match(/1[3-9]\d{9}/)            || [])[0] || '未识别';
   const email   = (resumeText.match(/[\w.+-]+@[\w.-]+\.\w+/)  || [])[0] || '未识别';
   const excerpt = resumeText.replace(/\s+/g,' ').trim().slice(0, 300);
-  sendToFeishu('🔍 新简历诊断 · 包子工具', [
+  sendLeadNotify('🔍 新简历诊断 · 包子工具', [
     {label: '时间',           value: new Date().toLocaleString('zh-CN')},
     {label: '目标岗位',       value: job || '未填写'},
     {label: '目标行业',       value: ind || '未填写'},
@@ -2293,8 +2292,7 @@ async function verifyCode() {
   document.getElementById('unlockErr').style.display = 'none';
 
   try {
-    const verifyUrl = CONFIG.verifyUrl || (CONFIG.proxyUrl.replace(/\/+$/, '') + '/verify');
-    const r = await fetch(verifyUrl, {
+    const r = await fetch(CONFIG.verifyUrl, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ code })
