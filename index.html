@@ -938,13 +938,13 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
     <!-- PC端：二维码 -->
     <div id="unlockQrBlock" style="text-align:center;margin:1rem 0 1.25rem;">
       <div style="font-size:12px;color:#64748b;margin-bottom:10px;font-weight:600;letter-spacing:.03em;">
-        📱 扫码添加包子老师企业微信，即可获取你的专属激活码
+        📱 扫码添加包子老师企业微信，获取激活码
       </div>
       <img src="qr-baozi.png" style="width:120px;height:120px;border-radius:10px;display:inline-block;border:3px solid #e2e8f0;" alt="扫码添加">
       <div style="font-size:11.5px;color:#64748b;margin-top:8px;line-height:1.8;">
         ① 扫码添加包子老师企微<br>
-        ② 自动收到你的<strong style="color:#2563eb">专属激活码</strong><br>
-        ③ 复制填入下方即可解锁
+        ② 发送「<strong style="color:#2563eb">激活码</strong>」即可获取<br>
+        ③ 复制填入下方解锁
       </div>
     </div>
 
@@ -958,8 +958,8 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
       </a>
       <div style="font-size:11.5px;color:#64748b;text-align:center;line-height:1.8;">
         ① 点上方按钮添加包子老师企微<br>
-        ② 自动收到你的<strong style="color:#2563eb">专属激活码</strong><br>
-        ③ 复制填入下方即可解锁
+        ② 发送「<strong style="color:#2563eb">激活码</strong>」即可获取<br>
+        ③ 复制填入下方解锁
       </div>
     </div>
 
@@ -972,13 +972,13 @@ footer{border-top:1px solid var(--border2);padding:2.5rem 2rem;text-align:center
 
     <div class="modal-field">
       <label>你的专属激活码</label>
-      <input type="text" id="unlockCode" placeholder="激活码（如 BZQZK9FM）" maxlength="8"
+      <input type="text" id="unlockCode" placeholder="输入激活码" maxlength="8"
         style="text-transform:uppercase;letter-spacing:.18em;font-family:'Consolas',monospace;font-size:16px;"
         onkeydown="if(event.key==='Enter')verifyCode()">
     </div>
     <div id="unlockErr" style="display:none;color:#dc2626;font-size:12.5px;margin:-6px 0 10px;text-align:center;font-weight:600;"></div>
     <button class="modal-submit" id="unlockBtn" onclick="verifyCode()">验证并解锁 →</button>
-    <div class="modal-privacy">📌 激活码每人专属，每日自动更新，添加企微后秒发，无需等待</div>
+    <div class="modal-privacy">📌 添加包子老师企微，发送「激活码」即可获取</div>
   </div>
 </div>
 
@@ -2050,14 +2050,20 @@ function renderCareer(c) {
       box.innerHTML = `<div class="career-lock">
         <div class="lock-blur">
           <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:1.5rem;margin-bottom:.75rem">
-            <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">综合评估</div>
-            <div style="font-size:13px;color:#334155;line-height:1.9">包子老师综合评估内容将在解锁后展示……职业发展方向建议、深度规划路径、技能提升清单……</div>
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">解锁后可见</div>
+            <div style="font-size:13px;color:#334155;line-height:2;">
+              🎯 定制职业发展路径（1年 / 3年 / 5年）<br>
+              💡 包子老师深度方向点评 &amp; 个性化建议<br>
+              📋 技能提升清单（按优先级排序）<br>
+              ⚡ 求职风险预警 &amp; 应对策略<br>
+              🏢 推荐对口企业 &amp; 行业选择建议
+            </div>
           </div>
         </div>
         <div class="lock-overlay">
           <div class="lock-icon">🔒</div>
           <div class="lock-title">完整职业规划待解锁</div>
-          <div class="lock-sub">扫码添加包子老师企微<br>自动获取激活码，免费解锁</div>
+          <div class="lock-sub">添加包子老师企微<br>获取激活码即可解锁</div>
           <button class="lock-btn" onclick="showUnlockModal()">获取激活码 · 解锁职业规划 →</button>
         </div>
       </div>`;
@@ -2073,8 +2079,14 @@ function renderCareer(c) {
       <div class="career-lock">
         <div class="lock-blur">
           <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:1.5rem;margin-bottom:.75rem">
-            <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">综合评估</div>
-            <div style="font-size:13px;color:#334155;line-height:1.9">包子老师综合评估内容将在解锁后展示……职业发展方向建议、深度规划路径、技能提升清单……</div>
+            <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">解锁后可见</div>
+            <div style="font-size:13px;color:#334155;line-height:2;">
+              🎯 定制职业发展路径（1年 / 3年 / 5年）<br>
+              💡 包子老师深度方向点评 &amp; 个性化建议<br>
+              📋 技能提升清单（按优先级排序）<br>
+              ⚡ 求职风险预警 &amp; 应对策略<br>
+              🏢 推荐对口企业 &amp; 行业选择建议
+            </div>
           </div>
           <div style="background:linear-gradient(135deg,#1e3a8a,#4c1d95);border-radius:16px;padding:1.5rem;color:#fff;margin-bottom:.75rem">
             <div style="font-size:10px;opacity:.6;margin-bottom:.3rem">包子老师推荐方向</div>
@@ -2087,7 +2099,7 @@ function renderCareer(c) {
         <div class="lock-overlay">
           <div class="lock-icon">🔒</div>
           <div class="lock-title">完整职业规划待解锁</div>
-          <div class="lock-sub">扫码添加包子老师企微<br>自动获取激活码，免费解锁</div>
+          <div class="lock-sub">添加包子老师企微<br>获取激活码即可解锁</div>
           <button class="lock-btn" onclick="showUnlockModal()">获取激活码 · 解锁职业规划 →</button>
         </div>
       </div>`;
