@@ -2424,7 +2424,7 @@ async function exportPDF(btn) {
 
   /* ── 专为PDF定制的雷达SVG（固定宽高，避免html2canvas缩放问题）── */
   const buildPDFRadar = dims => {
-    const W=680,H=500,cx=340,cy=250,maxR=155,n=dims.length;
+    const W=680,H=420,cx=340,cy=210,maxR=128,n=dims.length;
     let svg='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">'
       +'<defs><linearGradient id="prg" x1="0%" y1="0%" x2="100%" y2="100%">'
       +'<stop offset="0%" style="stop-color:#2563eb;stop-opacity:0.22"/>'
