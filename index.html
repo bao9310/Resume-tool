@@ -2385,376 +2385,409 @@ async function exportPDF(btn) {
   if (!diagnosisData) return;
   const origLabel = btn ? btn.textContent : '';
   const setLabel = t => { if (btn) btn.textContent = t; };
-  const setDisabled = v => { if (btn) btn.disabled = v; };
-  setLabel('⏳ 准备中…'); setDisabled(true);
+  setLabel('⏳ 准备中…'); if (btn) btn.disabled = true;
 
-  /* ── 1. 如果职业规划数据还没就绪，后台自动获取 ── */
+  /* ── 1. 等待职业规划数据 ── */
   if (!careerDataCache && rawResumeText) {
     setLabel('⏳ 加载职业规划…');
-    try {
-      await Promise.race([
-        fetchCareer(rawResumeText),
-        new Promise(r => setTimeout(r, 50000))
-      ]);
-    } catch(e) { /* silent */ }
+    try { await Promise.race([fetchCareer(rawResumeText), new Promise(r=>setTimeout(r,50000))]); } catch(e){}
   }
+
+  /* ── 2. 预加载二维码 ── */
+  let qrDataUrl = '';
+  try {
+    const resp = await fetch('./qr-baozi.png');
+    if (resp.ok) {
+      const blob = await resp.blob();
+      qrDataUrl = await new Promise(res => { const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(blob); });
+    }
+  } catch(e) {}
 
   setLabel('⏳ 生成报告…');
 
-  const d       = diagnosisData;
-  const career  = careerDataCache || d.career || null;
-  const ex = s => s == null ? '' : String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const d      = diagnosisData;
+  const career = careerDataCache || d.career || null;
+  const ex = s => s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-  const score      = Math.min(100, Math.max(0, d.score || 60));
-  const scoreCol   = score >= 75 ? '#10b981' : score >= 55 ? '#f59e0b' : '#ef4444';
-  const scoreLbl   = score >= 75 ? '优秀' : score >= 55 ? '良好' : '需提升';
-  const scoreGrade = score >= 85 ? 'A+' : score >= 75 ? 'A' : score >= 65 ? 'B+' : score >= 55 ? 'B' : score >= 45 ? 'C' : 'D';
+  const score      = Math.min(100, Math.max(0, d.score||60));
+  const scoreCol   = score>=75?'#10b981':score>=55?'#f59e0b':'#ef4444';
+  const scoreLbl   = score>=75?'优秀':score>=55?'良好':'需提升';
+  const scoreGrade = score>=85?'A+':score>=75?'A':score>=65?'B+':score>=55?'B':score>=45?'C':'D';
+  const issues     = d.issues||[];
+  const highIss    = issues.filter(i=>i.severity==='high');
+  const midIss     = issues.filter(i=>i.severity==='medium');
+  const lowIss     = issues.filter(i=>i.severity==='low');
+  const fixes      = d.priority_fixes||[];
+  const dims       = d.dimensions||[];
+  const genDate    = new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'});
+  const BRAND      = '职途领航';
 
-  const issues  = d.issues || [];
-  const highIss = issues.filter(i => i.severity === 'high');
-  const midIss  = issues.filter(i => i.severity === 'medium');
-  const lowIss  = issues.filter(i => i.severity === 'low');
-  const fixes   = d.priority_fixes || [];
-  const dims    = d.dimensions || [];
-  const jobtiMain = d.jobti_main || '';
-  const genDate   = new Date().toLocaleDateString('zh-CN', {year:'numeric',month:'long',day:'numeric'});
+  /* ── 专为PDF定制的雷达SVG（固定宽高，避免html2canvas缩放问题）── */
+  const buildPDFRadar = dims => {
+    const W=680,H=500,cx=340,cy=250,maxR=155,n=dims.length;
+    let svg='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">'
+      +'<defs><linearGradient id="prg" x1="0%" y1="0%" x2="100%" y2="100%">'
+      +'<stop offset="0%" style="stop-color:#2563eb;stop-opacity:0.22"/>'
+      +'<stop offset="100%" style="stop-color:#7c3aed;stop-opacity:0.16"/>'
+      +'</linearGradient></defs>';
+    [.25,.5,.75,1].forEach(lvl=>{
+      let pts=[];
+      for(let i=0;i<n;i++){const a=(i*2*Math.PI/n)-Math.PI/2;pts.push((cx+maxR*lvl*Math.cos(a)).toFixed(1)+','+(cy+maxR*lvl*Math.sin(a)).toFixed(1));}
+      svg+='<polygon points="'+pts.join(' ')+'" fill="none" stroke="'+(lvl===1?'#cbd5e1':'#e2e8f0')+'" stroke-width="'+(lvl===1?1.5:1)+'"/>';
+    });
+    for(let i=0;i<n;i++){const a=(i*2*Math.PI/n)-Math.PI/2;svg+='<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+maxR*Math.cos(a)).toFixed(1)+'" y2="'+(cy+maxR*Math.sin(a)).toFixed(1)+'" stroke="#e2e8f0" stroke-width="1"/>';}
+    let pts=[];
+    for(let i=0;i<n;i++){const a=(i*2*Math.PI/n)-Math.PI/2;const r=maxR*Math.min(dims[i].score,100)/100;pts.push((cx+r*Math.cos(a)).toFixed(1)+','+(cy+r*Math.sin(a)).toFixed(1));}
+    svg+='<polygon points="'+pts.join(' ')+'" fill="url(#prg)" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"/>';
+    for(let i=0;i<n;i++){const a=(i*2*Math.PI/n)-Math.PI/2;const r=maxR*Math.min(dims[i].score,100)/100;const px=(cx+r*Math.cos(a)).toFixed(1),py=(cy+r*Math.sin(a)).toFixed(1);svg+='<circle cx="'+px+'" cy="'+py+'" r="5.5" fill="#2563eb" stroke="#fff" stroke-width="2.5"/>';}
+    const LR=maxR+50;
+    for(let i=0;i<n;i++){
+      const a=(i*2*Math.PI/n)-Math.PI/2;
+      const cosA=Math.cos(a),sinA=Math.sin(a);
+      const lx=(cx+LR*cosA).toFixed(1),ly=(cy+LR*sinA).toFixed(1);
+      const anch=cosA>0.25?'start':cosA<-0.25?'end':'middle';
+      const nm=dims[i].name;
+      if(nm.length>4){
+        const m=Math.ceil(nm.length/2);
+        svg+='<text text-anchor="'+anch+'" font-size="14" fill="#475569" font-family="PingFang SC,Microsoft YaHei,Noto Sans SC,sans-serif">'
+          +'<tspan x="'+lx+'" y="'+(parseFloat(ly)-5).toFixed(1)+'">'+nm.slice(0,m)+'</tspan>'
+          +'<tspan x="'+lx+'" dy="19">'+nm.slice(m)+'</tspan>'
+          +'</text>'
+          +'<text text-anchor="'+anch+'" font-size="15" fill="#2563eb" font-weight="700" font-family="DM Mono,monospace">'
+          +'<tspan x="'+lx+'" y="'+(parseFloat(ly)+31).toFixed(1)+'">'+dims[i].score+'</tspan>'
+          +'</text>';
+      } else {
+        svg+='<text x="'+lx+'" y="'+(parseFloat(ly)+0).toFixed(1)+'" text-anchor="'+anch+'" font-size="14" fill="#475569" font-family="PingFang SC,Microsoft YaHei,Noto Sans SC,sans-serif">'+nm+'</text>'
+          +'<text x="'+lx+'" y="'+(parseFloat(ly)+19).toFixed(1)+'" text-anchor="'+anch+'" font-size="15" fill="#2563eb" font-weight="700" font-family="DM Mono,monospace">'+dims[i].score+'</text>';
+      }
+    }
+    svg+='</svg>';
+    return svg;
+  };
 
   /* ── helpers ── */
   const WRAP = 'font-family:\'PingFang SC\',\'Microsoft YaHei\',\'Noto Sans SC\',sans-serif;color:#1e293b;width:794px;background:#fff;';
 
-  const secHead = (num, title, sub) =>
+  const secHead=(num,title,sub)=>
     '<div style="margin-bottom:28px;">'
-    + '<div style="font-size:56px;font-weight:900;color:#f1f5f9;line-height:1;margin-bottom:-10px;">' + String(num).padStart(2,'0') + '</div>'
-    + '<div style="font-size:22px;font-weight:800;color:#0f172a;">' + title + '</div>'
-    + (sub ? '<div style="font-size:13px;color:#64748b;margin-top:5px;">' + sub + '</div>' : '')
-    + '<div style="width:44px;height:4px;background:linear-gradient(90deg,#2563eb,#7c3aed);border-radius:2px;margin-top:9px;"></div>'
-    + '</div>';
+    +'<div style="font-size:56px;font-weight:900;color:#f1f5f9;line-height:1;margin-bottom:-10px;">'+String(num).padStart(2,'0')+'</div>'
+    +'<div style="font-size:22px;font-weight:800;color:#0f172a;">'+title+'</div>'
+    +(sub?'<div style="font-size:13px;color:#64748b;margin-top:5px;">'+sub+'</div>':'')
+    +'<div style="width:44px;height:4px;background:linear-gradient(90deg,#2563eb,#7c3aed);border-radius:2px;margin-top:9px;"></div>'
+    +'</div>';
 
-  const issCard = iss => {
-    const cfg = {
-      high:   ['需修改',   '#ef4444','#fef2f2','#fecaca'],
-      medium: ['建议优化', '#f59e0b','#fffbeb','#fde68a'],
-      low:    ['可改进',   '#10b981','#f0fdf4','#bbf7d0'],
-    };
-    const [lbl, col, bg, bdr] = cfg[iss.severity] || cfg.medium;
-    const rows = [
-      iss.original   && ['原文摘录','#94a3b8', ex(iss.original)],
-      iss.problem    && ['问题诊断', col,       ex(iss.problem)],
-      iss.suggestion && ['修改建议','#2563eb',  ex(iss.suggestion)],
-      iss.rewrite    && ['参考文案','#7c3aed',  ex(iss.rewrite)],
+  const issCard=iss=>{
+    const cfg={high:['需修改','#ef4444','#fef2f2','#fecaca'],medium:['建议优化','#f59e0b','#fffbeb','#fde68a'],low:['可改进','#10b981','#f0fdf4','#bbf7d0']};
+    const[lbl,col,bg,bdr]=cfg[iss.severity]||cfg.medium;
+    const rows=[
+      iss.original   &&['原文摘录','#94a3b8',ex(iss.original)],
+      iss.problem    &&['问题诊断',col,      ex(iss.problem)],
+      iss.suggestion &&['修改建议','#2563eb', ex(iss.suggestion)],
+      iss.rewrite    &&['参考文案','#7c3aed', ex(iss.rewrite)],
     ].filter(Boolean);
-    return '<div style="border-radius:12px;border:1px solid ' + bdr + ';border-left:5px solid ' + col
-      + ';background:' + bg + ';padding:18px 20px;margin-bottom:14px;">'
-      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">'
-      +   '<span style="font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;background:' + col + ';color:#fff;">' + lbl + '</span>'
-      +   '<span style="font-size:15px;font-weight:800;color:#0f172a;">' + ex(iss.title) + '</span>'
-      +   '<span style="font-size:11px;color:#94a3b8;margin-left:auto;">' + ex(iss.location||'') + '</span>'
-      + '</div>'
-      + rows.map(([rl, rc, rv]) =>
-          '<div style="background:rgba(255,255,255,.75);border-radius:8px;padding:9px 12px;margin-bottom:7px;">'
-          + '<div style="font-size:10px;font-weight:700;color:' + rc + ';letter-spacing:.08em;margin-bottom:3px;">' + rl + '</div>'
-          + '<div style="font-size:13px;color:#374151;line-height:1.65;white-space:pre-wrap;">' + rv + '</div>'
-          + '</div>'
-        ).join('')
-      + '</div>';
+    return '<div style="border-radius:12px;border:1px solid '+bdr+';border-left:5px solid '+col+';background:'+bg+';padding:18px 20px;margin-bottom:14px;">'
+      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">'
+      +'<span style="font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;background:'+col+';color:#fff;">'+lbl+'</span>'
+      +'<span style="font-size:15px;font-weight:800;color:#0f172a;">'+ex(iss.title)+'</span>'
+      +'<span style="font-size:11px;color:#94a3b8;margin-left:auto;">'+ex(iss.location||'')+'</span>'
+      +'</div>'
+      +rows.map(([rl,rc,rv])=>
+        '<div style="background:rgba(255,255,255,.75);border-radius:8px;padding:9px 12px;margin-bottom:7px;">'
+        +'<div style="font-size:10px;font-weight:700;color:'+rc+';letter-spacing:.08em;margin-bottom:3px;">'+rl+'</div>'
+        +'<div style="font-size:13px;color:#374151;line-height:1.65;white-space:pre-wrap;">'+rv+'</div>'
+        +'</div>').join('')
+      +'</div>';
   };
 
-  const radarSvg = dims.length ? buildRadar(dims) : '';
-
-  const dimBarsHtml = dims.map(dim => {
-    const dc = dim.score >= 75 ? '#10b981' : dim.score >= 55 ? '#f59e0b' : '#ef4444';
+  const dimBarsHtml=dims.map(dim=>{
+    const dc=dim.score>=75?'#10b981':dim.score>=55?'#f59e0b':'#ef4444';
     return '<div style="padding:12px 14px;background:#f8faff;border:1px solid #e0e7ff;border-radius:10px;">'
-      + '<div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
-      +   '<span style="font-size:13px;font-weight:700;color:#1e293b;">' + ex(dim.name) + '</span>'
-      +   '<span style="font-size:15px;font-weight:900;color:' + dc + ';">' + dim.score + '</span>'
-      + '</div>'
-      + '<div style="background:#e2e8f0;border-radius:3px;height:6px;margin-bottom:5px;overflow:hidden;">'
-      +   '<div style="width:' + dim.score + '%;height:100%;border-radius:3px;background:linear-gradient(90deg,#2563eb,#7c3aed);"></div>'
-      + '</div>'
-      + '<div style="font-size:11px;color:#64748b;line-height:1.5;">' + ex(dim.desc||dim.comment||'') + '</div>'
-      + '</div>';
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
+      +'<span style="font-size:13px;font-weight:700;color:#1e293b;">'+ex(dim.name)+'</span>'
+      +'<span style="font-size:15px;font-weight:900;color:'+dc+';">'+dim.score+'</span>'
+      +'</div>'
+      +'<div style="background:#e2e8f0;border-radius:3px;height:6px;margin-bottom:5px;overflow:hidden;">'
+      +'<div style="width:'+dim.score+'%;height:100%;border-radius:3px;background:linear-gradient(90deg,#2563eb,#7c3aed);"></div>'
+      +'</div>'
+      +'<div style="font-size:11px;color:#64748b;line-height:1.5;">'+ex(dim.desc||dim.comment||'')+'</div>'
+      +'</div>';
   }).join('');
 
-  /* ── 构建各页 HTML ── */
+  /* ══════════════════════════════════════════
+     构建各页HTML
+  ══════════════════════════════════════════ */
 
-  /* Page 1: 封面 */
-  const coverHtml = '<div style="' + WRAP + '">'
-    + '<div style="background:linear-gradient(145deg,#0f172a 0%,#1e1b4b 50%,#312e81 100%);min-height:1100px;padding:70px 64px;display:flex;flex-direction:column;justify-content:space-between;">'
-    +   '<div>'
-    +     '<div style="display:inline-block;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:5px 18px;font-size:12px;color:rgba(255,255,255,.7);letter-spacing:1px;margin-bottom:52px;">包子求职 · AI 简历诊断系统</div>'
-    +     '<div style="font-size:13px;color:rgba(255,255,255,.4);letter-spacing:2.5px;margin-bottom:12px;font-weight:500;">RESUME DIAGNOSIS REPORT</div>'
-    +     '<div style="font-size:48px;font-weight:900;color:#fff;line-height:1.15;margin-bottom:10px;">简历诊断<br>完整报告</div>'
-    +     (jobtiMain ? '<div style="font-size:13px;color:rgba(255,255,255,.45);margin-top:14px;letter-spacing:.5px;">求职人格 · ' + ex(jobtiMain) + '</div>' : '')
-    +   '</div>'
-    +   '<div style="text-align:center;padding:40px 0;">'
-    +     '<div style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.2);border-radius:50%;width:190px;height:190px;">'
-    +       '<div style="font-size:76px;font-weight:900;color:' + scoreCol + ';line-height:1;">' + score + '</div>'
-    +       '<div style="font-size:13px;color:rgba(255,255,255,.55);margin-top:4px;">' + scoreLbl + ' / 100分</div>'
-    +     '</div>'
-    +     '<div style="margin-top:18px;">'
-    +       '<span style="display:inline-block;background:' + scoreCol + ';color:#fff;font-size:18px;font-weight:800;padding:6px 26px;border-radius:30px;letter-spacing:2px;">' + scoreGrade + ' 级</span>'
-    +     '</div>'
-    +   '</div>'
-    +   '<div>'
-    +     ((d.baozi_comment||d.summary)
-        ? '<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:20px 24px;margin-bottom:22px;">'
-        +   '<div style="font-size:11px;color:rgba(255,255,255,.4);letter-spacing:1px;margin-bottom:8px;">🎙️ 包子老师诊断评语</div>'
-        +   '<div style="font-size:14px;color:rgba(255,255,255,.82);line-height:1.8;white-space:pre-wrap;">' + ex(d.baozi_comment||d.summary) + '</div>'
-        + '</div>'
-        : '')
-    +     '<div style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,.1);padding-top:18px;">'
-    +       '<div style="font-size:12px;color:rgba(255,255,255,.3);">baoziqiuzhi.com</div>'
-    +       '<div style="font-size:12px;color:rgba(255,255,255,.3);">' + genDate + '</div>'
-    +     '</div>'
-    +   '</div>'
-    + '</div>'
-    + '</div>';
+  /* ── 新封面（白底居中）── */
+  const newCoverHtml = '<div style="'+WRAP+'">'
+    +'<div style="background:#fff;min-height:1100px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 60px;">'
+    // 顶部彩条
+    +'<div style="position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,#2563eb 0%,#7c3aed 50%,#2563eb 100%);"></div>'
+    // 图标
+    +'<div style="width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#7c3aed);display:flex;align-items:center;justify-content:center;margin-bottom:36px;box-shadow:0 8px 32px rgba(37,99,235,.25);">'
+    +'<span style="font-size:40px;line-height:1;">🧭</span>'
+    +'</div>'
+    // 主标题
+    +'<div style="font-size:52px;font-weight:900;color:#0f172a;letter-spacing:6px;margin-bottom:20px;text-align:center;">'+BRAND+'</div>'
+    // 渐变下划线
+    +'<div style="width:80px;height:3px;background:linear-gradient(90deg,#2563eb,#7c3aed);border-radius:2px;margin-bottom:24px;"></div>'
+    // 副标题
+    +'<div style="font-size:26px;font-weight:400;color:#374151;letter-spacing:8px;margin-bottom:10px;text-align:center;">职业生涯规划报告</div>'
+    +'<div style="font-size:13px;color:#94a3b8;letter-spacing:3px;margin-bottom:60px;">CAREER PLANNING REPORT</div>'
+    // 分隔线
+    +'<div style="width:240px;height:1px;background:#e2e8f0;margin-bottom:32px;"></div>'
+    // 日期
+    +'<div style="font-size:15px;color:#64748b;letter-spacing:1px;margin-bottom:8px;">'+genDate+'</div>'
+    +'<div style="font-size:12px;color:#94a3b8;letter-spacing:.5px;">baoziqiuzhi.com</div>'
+    // 底部彩条
+    +'<div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#2563eb,#7c3aed,#2563eb);"></div>'
+    +'</div>'
+    +'</div>';
 
-  /* Page 2: 诊断总览 */
-  const overviewHtml = '<div style="' + WRAP + 'padding:60px 56px 50px;">'
-    + secHead(1,'诊断总览','一眼看清简历现状与核心短板')
-    + '<div style="display:flex;gap:14px;margin-bottom:28px;">'
-    + [['🚨','需修改',    highIss.length,'#ef4444','#fef2f2','#fecaca'],
-       ['⚠️','建议优化',  midIss.length, '#f59e0b','#fffbeb','#fde68a'],
-       ['💡','可改进',    lowIss.length, '#10b981','#f0fdf4','#bbf7d0'],
-       ['📋','全部问题',  issues.length, '#2563eb','#eff6ff','#bfdbfe']].map(([ic,lbl,cnt,col,bg,bdr]) =>
-        '<div style="flex:1;background:' + bg + ';border:1px solid ' + bdr + ';border-radius:14px;padding:22px 16px;text-align:center;">'
-        + '<div style="font-size:46px;font-weight:900;color:' + col + ';line-height:1;">' + cnt + '</div>'
-        + '<div style="font-size:12px;font-weight:700;color:' + col + ';margin-top:5px;">' + ic + ' ' + lbl + '</div>'
-        + '</div>').join('')
-    + '</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">'
-    + [['⭐','最大竞争优势', d.key_advantage||'—',           '#f8faff','#e0e7ff'],
-       ['⚡','最紧迫修改项', d.urgent_fix||'—',              '#fff8f1','#fed7aa'],
-       ['🏷️','核心能力标签', d.key_skill||'—',               '#f0fdf4','#bbf7d0'],
-       ['📝','AI综合评价',  d.summary||d.baozi_comment||'—', '#fdf4ff','#e9d5ff']].map(([ic,lbl,val,bg,bdr]) =>
-        '<div style="background:' + bg + ';border:1px solid ' + bdr + ';border-radius:12px;padding:18px 20px;">'
-        + '<div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px;">' + ic + '  ' + lbl + '</div>'
-        + '<div style="font-size:14px;font-weight:700;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + ex(val) + '</div>'
-        + '</div>').join('')
-    + '</div>'
-    + '</div>';
+  /* ── 原深色封面（保留作为第二封面）── */
+  const coverHtml='<div style="'+WRAP+'">'
+    +'<div style="background:linear-gradient(145deg,#0f172a 0%,#1e1b4b 50%,#312e81 100%);min-height:1050px;padding:70px 64px;display:flex;flex-direction:column;justify-content:space-between;">'
+    +'<div>'
+    +'<div style="display:inline-block;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:5px 18px;font-size:12px;color:rgba(255,255,255,.7);letter-spacing:1px;margin-bottom:52px;">'+BRAND+' · 简历诊断系统</div>'
+    +'<div style="font-size:13px;color:rgba(255,255,255,.4);letter-spacing:2.5px;margin-bottom:12px;font-weight:500;">RESUME DIAGNOSIS REPORT</div>'
+    +'<div style="font-size:48px;font-weight:900;color:#fff;line-height:1.15;margin-bottom:10px;">简历诊断<br>完整报告</div>'
+    +'</div>'
+    +'<div style="text-align:center;padding:40px 0;">'
+    +'<div style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.2);border-radius:50%;width:190px;height:190px;">'
+    +'<div style="font-size:76px;font-weight:900;color:'+scoreCol+';line-height:1;">'+score+'</div>'
+    +'<div style="font-size:13px;color:rgba(255,255,255,.55);margin-top:4px;">'+scoreLbl+' / 100分</div>'
+    +'</div>'
+    +'<div style="margin-top:18px;"><span style="display:inline-block;background:'+scoreCol+';color:#fff;font-size:18px;font-weight:800;padding:6px 26px;border-radius:30px;letter-spacing:2px;">'+scoreGrade+' 级</span></div>'
+    +'</div>'
+    +'<div>'
+    +((d.baozi_comment||d.summary)
+      ?'<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:20px 24px;margin-bottom:22px;">'
+      +'<div style="font-size:11px;color:rgba(255,255,255,.4);letter-spacing:1px;margin-bottom:8px;">🎙️ '+BRAND+'诊断评语</div>'
+      +'<div style="font-size:14px;color:rgba(255,255,255,.82);line-height:1.8;white-space:pre-wrap;">'+ex(d.baozi_comment||d.summary)+'</div>'
+      +'</div>'
+      :'')
+    +'<div style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,.1);padding-top:18px;">'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.3);">baoziqiuzhi.com</div>'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.3);">'+genDate+'</div>'
+    +'</div></div></div></div>';
 
-  /* Page 3: 优先修改清单 */
-  const fixesHtml = fixes.length
-    ? '<div style="' + WRAP + 'padding:60px 56px 50px;background:linear-gradient(180deg,#fafafa,#fff);">'
-      + secHead(2,'优先修改清单','P0 最紧迫 → P1 重要 → P2 有余力再做')
-      + fixes.map(f => {
-          const fc = {P0:['#dc2626','#fef2f2','#fecaca'],P1:['#d97706','#fffbeb','#fde68a'],P2:['#059669','#f0fdf4','#bbf7d0']};
-          const [col,bg,bdr] = fc[f.level]||fc.P2;
-          return '<div style="background:' + bg + ';border:1px solid ' + bdr + ';border-radius:12px;padding:18px 20px;margin-bottom:14px;display:flex;align-items:flex-start;gap:14px;">'
-            + '<div style="flex-shrink:0;background:' + col + ';color:#fff;font-size:12px;font-weight:900;padding:5px 12px;border-radius:7px;letter-spacing:1px;margin-top:1px;">' + f.level + '</div>'
-            + '<div style="font-size:14px;color:#1e293b;line-height:1.75;white-space:pre-wrap;">' + ex(f.content) + '</div>'
-            + '</div>';
-        }).join('')
-      + '</div>'
-    : null;
+  /* ── 诊断总览 ── */
+  const overviewHtml='<div style="'+WRAP+'padding:60px 56px 50px;">'
+    +secHead(1,'诊断总览','一眼看清简历现状与核心短板')
+    +'<div style="display:flex;gap:14px;margin-bottom:28px;">'
+    +[['🚨','需修改',highIss.length,'#ef4444','#fef2f2','#fecaca'],
+      ['⚠️','建议优化',midIss.length,'#f59e0b','#fffbeb','#fde68a'],
+      ['💡','可改进',lowIss.length,'#10b981','#f0fdf4','#bbf7d0'],
+      ['📋','全部问题',issues.length,'#2563eb','#eff6ff','#bfdbfe']].map(([ic,lbl,cnt,col,bg,bdr])=>
+      '<div style="flex:1;background:'+bg+';border:1px solid '+bdr+';border-radius:14px;padding:22px 16px;text-align:center;">'
+      +'<div style="font-size:46px;font-weight:900;color:'+col+';line-height:1;">'+cnt+'</div>'
+      +'<div style="font-size:12px;font-weight:700;color:'+col+';margin-top:5px;">'+ic+' '+lbl+'</div>'
+      +'</div>').join('')
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">'
+    +[['⭐','最大竞争优势',d.key_advantage||'—','#f8faff','#e0e7ff'],
+      ['⚡','最紧迫修改项',d.urgent_fix||'—','#fff8f1','#fed7aa'],
+      ['🏷️','核心能力标签',d.key_skill||'—','#f0fdf4','#bbf7d0'],
+      ['📝','综合评价',d.summary||d.baozi_comment||'—','#fdf4ff','#e9d5ff']].map(([ic,lbl,val,bg,bdr])=>
+      '<div style="background:'+bg+';border:1px solid '+bdr+';border-radius:12px;padding:18px 20px;">'
+      +'<div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:8px;">'+ic+'  '+lbl+'</div>'
+      +'<div style="font-size:14px;font-weight:700;color:#1e293b;line-height:1.6;white-space:pre-wrap;">'+ex(val)+'</div>'
+      +'</div>').join('')
+    +'</div></div>';
 
-  /* Page 4: 八维雷达图 */
-  const radarHtml = dims.length
-    ? '<div style="' + WRAP + 'padding:60px 56px 50px;">'
-      + secHead(3,'简历能力画像','八维评估 · 一图看透你的简历实力分布')
-      + '<div style="background:linear-gradient(135deg,#f8faff,#fdf4ff);border:1px solid #e0e7ff;border-radius:18px;padding:24px 16px;margin-bottom:24px;text-align:center;">'
-      +   radarSvg
-      + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' + dimBarsHtml + '</div>'
-      + '</div>'
-    : null;
+  /* ── 优先修改清单 ── */
+  const fixesHtml=fixes.length
+    ?'<div style="'+WRAP+'padding:60px 56px 50px;background:linear-gradient(180deg,#fafafa,#fff);">'
+      +secHead(2,'优先修改清单','P0 最紧迫 → P1 重要 → P2 有余力再做')
+      +fixes.map(f=>{
+        const fc={P0:['#dc2626','#fef2f2','#fecaca'],P1:['#d97706','#fffbeb','#fde68a'],P2:['#059669','#f0fdf4','#bbf7d0']};
+        const[col,bg,bdr]=fc[f.level]||fc.P2;
+        return '<div style="background:'+bg+';border:1px solid '+bdr+';border-radius:12px;padding:18px 20px;margin-bottom:14px;display:flex;align-items:flex-start;gap:14px;">'
+          +'<div style="flex-shrink:0;background:'+col+';color:#fff;font-size:12px;font-weight:900;padding:5px 12px;border-radius:7px;letter-spacing:1px;margin-top:1px;">'+f.level+'</div>'
+          +'<div style="font-size:14px;color:#1e293b;line-height:1.75;white-space:pre-wrap;">'+ex(f.content)+'</div>'
+          +'</div>';
+      }).join('')
+      +'</div>'
+    :null;
 
-  /* Pages 5-7: 逐条问题 (each severity as its own section) */
-  const makeIssGroup = (title, sub, list, bg, isFirst) =>
-    '<div style="' + WRAP + 'padding:' + (isFirst ? '60' : '50') + 'px 56px 40px;background:linear-gradient(180deg,' + bg + ',#fff);">'
-    + (isFirst ? secHead(4,'逐条问题分析','原文 · 问题诊断 · 修改建议 · 参考文案') : '')
-    + '<div style="margin-bottom:20px;">'
-    +   '<div style="font-size:17px;font-weight:800;color:#1e293b;">' + title + '</div>'
-    +   '<div style="font-size:12px;color:#94a3b8;margin-top:3px;">' + sub + '</div>'
-    +   '<div style="width:36px;height:3px;background:#e0e7ff;border-radius:2px;margin-top:8px;"></div>'
-    + '</div>'
-    + list.map(issCard).join('')
-    + '</div>';
+  /* ── 雷达图（使用自定义PDF雷达，固定尺寸）── */
+  const radarHtml=dims.length
+    ?'<div style="'+WRAP+'padding:60px 56px 50px;">'
+      +secHead(3,'简历能力画像','八维评估 · 一图看透你的简历实力分布')
+      +'<div style="background:linear-gradient(135deg,#f8faff,#fdf4ff);border:1px solid #e0e7ff;border-radius:18px;padding:16px;margin-bottom:24px;display:flex;justify-content:center;align-items:center;overflow:hidden;">'
+      +buildPDFRadar(dims)
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'+dimBarsHtml+'</div>'
+      +'</div>'
+    :null;
 
-  const highHtml = highIss.length ? makeIssGroup('高危问题 · 需立即修改', '共 '+highIss.length+' 个', highIss, '#fff8f8', true)  : null;
-  const midHtml  = midIss.length  ? makeIssGroup('建议优化项',             '共 '+midIss.length+' 个',  midIss,  '#fffcf0', !highIss.length) : null;
-  const lowHtml  = lowIss.length  ? makeIssGroup('可改进项',               '共 '+lowIss.length+' 个',  lowIss,  '#f6fef9', !highIss.length && !midIss.length) : null;
+  /* ── 逐条问题 ── */
+  const makeIssGroup=(title,sub,list,bg,isFirst)=>
+    '<div style="'+WRAP+'padding:'+(isFirst?'60':'50')+'px 56px 40px;background:linear-gradient(180deg,'+bg+',#fff);">'
+    +(isFirst?secHead(4,'逐条问题分析','原文 · 问题诊断 · 修改建议 · 参考文案'):'')
+    +'<div style="margin-bottom:20px;">'
+    +'<div style="font-size:17px;font-weight:800;color:#1e293b;">'+title+'</div>'
+    +'<div style="font-size:12px;color:#94a3b8;margin-top:3px;">'+sub+'</div>'
+    +'<div style="width:36px;height:3px;background:#e0e7ff;border-radius:2px;margin-top:8px;"></div>'
+    +'</div>'
+    +list.map(issCard).join('')
+    +'</div>';
 
-  /* Pages 8-9: 职业规划 */
-  let careerHtml1 = null, careerHtml2 = null;
-  if (career) {
-    let p1 = '<div style="' + WRAP + 'padding:60px 56px 40px;background:linear-gradient(180deg,#f5f3ff,#eff6ff,#fff);">'
-      + secHead(5,'职业规划','基于你的简历，包子老师为你定制的发展路线');
+  const highHtml=highIss.length?makeIssGroup('高危问题 · 需立即修改','共 '+highIss.length+' 个',highIss,'#fff8f8',true):null;
+  const midHtml =midIss.length ?makeIssGroup('建议优化项','共 '+midIss.length+' 个',midIss,'#fffcf0',!highIss.length):null;
+  const lowHtml =lowIss.length ?makeIssGroup('可改进项','共 '+lowIss.length+' 个',lowIss,'#f6fef9',!highIss.length&&!midIss.length):null;
 
-    if (career.overview) {
-      p1 += '<div style="background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:14px;padding:22px 24px;margin-bottom:18px;">'
-        + '<div style="font-size:11px;font-weight:700;color:#7c3aed;letter-spacing:.1em;margin-bottom:8px;">综合评估</div>'
-        + '<div style="font-size:14px;color:#1e293b;line-height:1.85;white-space:pre-wrap;">' + ex(career.overview) + '</div>'
-        + '</div>';
+  /* ── 职业规划 ── */
+  let careerHtml1=null,careerHtml2=null;
+  if(career){
+    let p1='<div style="'+WRAP+'padding:60px 56px 40px;background:linear-gradient(180deg,#f5f3ff,#eff6ff,#fff);">'
+      +secHead(5,'职业规划','基于你的简历，'+BRAND+'为你定制的发展路线');
+    if(career.overview){
+      p1+='<div style="background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:14px;padding:22px 24px;margin-bottom:18px;">'
+        +'<div style="font-size:11px;font-weight:700;color:#7c3aed;letter-spacing:.1em;margin-bottom:8px;">综合评估</div>'
+        +'<div style="font-size:14px;color:#1e293b;line-height:1.85;white-space:pre-wrap;">'+ex(career.overview)+'</div>'
+        +'</div>';
     }
-    if (career.direction) {
-      p1 += '<div style="background:linear-gradient(135deg,#1e40af,#6d28d9);border-radius:16px;padding:26px 28px;margin-bottom:18px;">'
-        + '<div style="font-size:11px;color:rgba(255,255,255,.5);letter-spacing:1px;margin-bottom:7px;">包子老师推荐方向</div>'
-        + '<div style="font-size:24px;font-weight:900;color:#fff;margin-bottom:10px;">→ ' + ex(career.direction) + '</div>'
-        + (career.direction_reason ? '<div style="font-size:13px;color:rgba(255,255,255,.8);line-height:1.75;white-space:pre-wrap;">' + ex(career.direction_reason) + '</div>' : '')
-        + '</div>';
+    if(career.direction){
+      p1+='<div style="background:linear-gradient(135deg,#1e40af,#6d28d9);border-radius:16px;padding:26px 28px;margin-bottom:18px;">'
+        +'<div style="font-size:11px;color:rgba(255,255,255,.5);letter-spacing:1px;margin-bottom:7px;">'+BRAND+'推荐方向</div>'
+        +'<div style="font-size:24px;font-weight:900;color:#fff;margin-bottom:10px;">→ '+ex(career.direction)+'</div>'
+        +(career.direction_reason?'<div style="font-size:13px;color:rgba(255,255,255,.8);line-height:1.75;white-space:pre-wrap;">'+ex(career.direction_reason)+'</div>':'')
+        +'</div>';
     }
-    // Timeline
-    const tls = [
-      [career.short_term,'近期目标','1-2年','#2563eb','#eff6ff','#bfdbfe'],
-      [career.mid_term,  '中期发展','3-5年','#7c3aed','#f5f3ff','#ddd6fe'],
-      [career.long_term, '长期愿景','5年+', '#0891b2','#ecfeff','#a5f3fc'],
-    ].filter(x => x[0]);
-    if (tls.length) {
-      p1 += '<div style="display:flex;gap:12px;margin-bottom:18px;">'
-        + tls.map(([item,title,def,col,bg,bdr]) =>
-            '<div style="flex:1;background:' + bg + ';border:1px solid ' + bdr + ';border-radius:12px;padding:16px;">'
-            + '<div style="font-size:11px;font-weight:800;color:' + col + ';letter-spacing:.06em;margin-bottom:3px;">' + ex(item.title||def) + '</div>'
-            + '<div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px;">' + title + '</div>'
-            + '<div style="font-size:12px;color:#374151;line-height:1.7;white-space:pre-wrap;">' + ex(item.content||'') + '</div>'
-            + '</div>'
-          ).join('')
-        + '</div>';
+    const tls=[[career.short_term,'近期目标','1-2年','#2563eb','#eff6ff','#bfdbfe'],
+      [career.mid_term,'中期发展','3-5年','#7c3aed','#f5f3ff','#ddd6fe'],
+      [career.long_term,'长期愿景','5年+','#0891b2','#ecfeff','#a5f3fc']].filter(x=>x[0]);
+    if(tls.length){
+      p1+='<div style="display:flex;gap:12px;margin-bottom:18px;">'
+        +tls.map(([item,title,def,col,bg,bdr])=>
+          '<div style="flex:1;background:'+bg+';border:1px solid '+bdr+';border-radius:12px;padding:16px;">'
+          +'<div style="font-size:11px;font-weight:800;color:'+col+';letter-spacing:.06em;margin-bottom:3px;">'+ex(item.title||def)+'</div>'
+          +'<div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px;">'+title+'</div>'
+          +'<div style="font-size:12px;color:#374151;line-height:1.7;white-space:pre-wrap;">'+ex(item.content||'')+'</div>'
+          +'</div>').join('')
+        +'</div>';
     }
-    p1 += '</div>';
-    careerHtml1 = p1;
+    p1+='</div>';
+    careerHtml1=p1;
 
-    // Part 2: skills + strengths + risks + industry advice
-    let p2 = '<div style="' + WRAP + 'padding:50px 56px 50px;background:linear-gradient(180deg,#fff,#f8faff);">';
-    const skills = career.skills || [];
-    if (skills.length) {
-      p2 += '<div style="margin-bottom:22px;">'
-        + '<div style="font-size:16px;font-weight:800;color:#1e293b;margin-bottom:12px;">📚 需要补充的能力</div>'
-        + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-        + skills.map(sk => {
-            const pc = sk.priority==='high'?['#dc2626','#fef2f2']
-                     : sk.priority==='medium'?['#d97706','#fffbeb']
-                     : ['#059669','#f0fdf4'];
-            return '<span style="font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px;color:' + pc[0] + ';background:' + pc[1] + ';border:1px solid ' + pc[0] + '33;">● ' + ex(sk.name||String(sk)) + '</span>';
-          }).join('')
-        + '</div></div>';
+    let p2='<div style="'+WRAP+'padding:50px 56px 50px;background:linear-gradient(180deg,#fff,#f8faff);">';
+    const skills=career.skills||[];
+    if(skills.length){
+      p2+='<div style="margin-bottom:22px;">'
+        +'<div style="font-size:16px;font-weight:800;color:#1e293b;margin-bottom:12px;">📚 需要补充的能力</div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+        +skills.map(sk=>{const pc=sk.priority==='high'?['#dc2626','#fef2f2']:sk.priority==='medium'?['#d97706','#fffbeb']:['#059669','#f0fdf4'];
+          return '<span style="font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px;color:'+pc[0]+';background:'+pc[1]+';border:1px solid '+pc[0]+'33;">● '+ex(sk.name||String(sk))+'</span>';}).join('')
+        +'</div></div>';
     }
-    const strs = career.strengths || [];
-    if (strs.length || career.risks) {
-      p2 += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px;">';
-      if (strs.length) {
-        p2 += '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;padding:20px;">'
-          + '<div style="font-size:13px;font-weight:800;color:#065f46;margin-bottom:12px;">✅ 核心竞争优势</div>'
-          + strs.map(s =>
-              '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;">'
-              + '<span style="width:6px;height:6px;border-radius:50%;background:#10b981;flex-shrink:0;margin-top:5px;"></span>'
-              + '<span style="font-size:13px;color:#1e293b;line-height:1.55;">' + ex(s) + '</span>'
-              + '</div>'
-            ).join('')
-          + '</div>';
-      }
-      if (career.risks) {
-        p2 += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:20px;">'
-          + '<div style="font-size:13px;font-weight:800;color:#92400e;margin-bottom:12px;">⚠️ 风险预警</div>'
-          + '<div style="font-size:13px;color:#78350f;line-height:1.75;white-space:pre-wrap;">' + ex(career.risks) + '</div>'
-          + '</div>';
-      }
-      p2 += '</div>';
+    const strs=career.strengths||[];
+    if(strs.length||career.risks){
+      p2+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px;">';
+      if(strs.length){p2+='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;padding:20px;">'
+        +'<div style="font-size:13px;font-weight:800;color:#065f46;margin-bottom:12px;">✅ 核心竞争优势</div>'
+        +strs.map(s=>'<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;flex-shrink:0;margin-top:5px;"></span><span style="font-size:13px;color:#1e293b;line-height:1.55;">'+ex(s)+'</span></div>').join('')
+        +'</div>';}
+      if(career.risks){p2+='<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:20px;">'
+        +'<div style="font-size:13px;font-weight:800;color:#92400e;margin-bottom:12px;">⚠️ 风险预警</div>'
+        +'<div style="font-size:13px;color:#78350f;line-height:1.75;white-space:pre-wrap;">'+ex(career.risks)+'</div>'
+        +'</div>';}
+      p2+='</div>';
     }
-    if (career.industry_advice) {
-      p2 += '<div style="background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:14px;padding:20px 22px;margin-bottom:22px;">'
-        + '<div style="font-size:13px;font-weight:800;color:#1e40af;margin-bottom:10px;">🏢 行业选择建议</div>'
-        + '<div style="font-size:13px;color:#374151;line-height:1.75;white-space:pre-wrap;">' + ex(career.industry_advice) + '</div>'
-        + '</div>';
+    if(career.industry_advice){
+      p2+='<div style="background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:14px;padding:20px 22px;margin-bottom:22px;">'
+        +'<div style="font-size:13px;font-weight:800;color:#1e40af;margin-bottom:10px;">🏢 行业选择建议</div>'
+        +'<div style="font-size:13px;color:#374151;line-height:1.75;white-space:pre-wrap;">'+ex(career.industry_advice)+'</div>'
+        +'</div>';
     }
-    if (career.detailed_advice) {
-      p2 += '<div style="background:#fff;border:1px solid #e0e7ff;border-radius:14px;padding:20px 22px;">'
-        + '<div style="font-size:13px;font-weight:800;color:#1e293b;margin-bottom:10px;">💡 深度发展建议</div>'
-        + '<div style="font-size:13px;color:#374151;line-height:1.8;white-space:pre-wrap;">' + ex(career.detailed_advice) + '</div>'
-        + '</div>';
+    if(career.detailed_advice){
+      p2+='<div style="background:#fff;border:1px solid #e0e7ff;border-radius:14px;padding:20px 22px;">'
+        +'<div style="font-size:13px;font-weight:800;color:#1e293b;margin-bottom:10px;">💡 深度发展建议</div>'
+        +'<div style="font-size:13px;color:#374151;line-height:1.8;white-space:pre-wrap;">'+ex(career.detailed_advice)+'</div>'
+        +'</div>';
     }
-    p2 += '</div>';
-    careerHtml2 = p2;
+    p2+='</div>';
+    careerHtml2=p2;
   } else {
-    careerHtml1 = '<div style="' + WRAP + 'padding:60px 56px 50px;background:linear-gradient(180deg,#f5f3ff,#eff6ff,#fff);">'
-      + secHead(5,'职业规划','包子老师专属职业规划')
-      + '<div style="background:#f8faff;border:2px dashed #c7d2fe;border-radius:14px;padding:50px 30px;text-align:center;">'
-      + '<div style="font-size:36px;margin-bottom:12px;">🔒</div>'
-      + '<div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:8px;">职业规划内容</div>'
-      + '<div style="font-size:13px;color:#64748b;line-height:1.7;">在网页版完成诊断后<br>添加包子老师企微获取激活码<br>即可解锁完整职业规划</div>'
-      + '</div>'
-      + '</div>';
+    careerHtml1='<div style="'+WRAP+'padding:60px 56px 50px;background:linear-gradient(180deg,#f5f3ff,#eff6ff,#fff);">'
+      +secHead(5,'职业规划',BRAND+'专属职业规划')
+      +'<div style="background:#f8faff;border:2px dashed #c7d2fe;border-radius:14px;padding:50px 30px;text-align:center;">'
+      +'<div style="font-size:36px;margin-bottom:12px;">🔒</div>'
+      +'<div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:8px;">职业规划内容</div>'
+      +'<div style="font-size:13px;color:#64748b;line-height:1.7;">联系'+BRAND+'顾问<br>即可解锁完整职业规划内容</div>'
+      +'</div></div>';
   }
 
-  /* 封底 */
-  const footerHtml = '<div style="' + WRAP + '">'
-    + '<div style="background:linear-gradient(145deg,#0f172a,#1e1b4b);padding:80px 56px;text-align:center;min-height:500px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">'
-    + '<div style="font-size:32px;font-weight:900;color:#fff;">包子求职</div>'
-    + '<div style="font-size:13px;color:rgba(255,255,255,.4);letter-spacing:1px;">baoziqiuzhi.com · AI简历诊断 · 让求职更高效</div>'
-    + '<div style="width:50px;height:2px;background:rgba(255,255,255,.15);border-radius:1px;"></div>'
-    + '<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:18px 28px;">'
-    +   '<div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:5px;">如需一对一辅导，欢迎联系</div>'
-    +   '<div style="font-size:14px;font-weight:700;color:#a5b4fc;">添加包子老师企业微信 · 简历改完为止</div>'
-    + '</div>'
-    + '<div style="font-size:11px;color:rgba(255,255,255,.2);">本报告由 AI 自动生成 · 仅供参考 · ' + genDate + '</div>'
-    + '</div>'
-    + '</div>';
+  /* ── 封底（品牌+二维码）── */
+  const footerHtml='<div style="'+WRAP+'">'
+    +'<div style="background:linear-gradient(145deg,#0f172a,#1e1b4b);padding:60px 56px;text-align:center;min-height:600px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">'
+    +'<div style="font-size:34px;font-weight:900;color:#fff;letter-spacing:3px;">'+BRAND+'</div>'
+    +'<div style="font-size:13px;color:rgba(255,255,255,.4);letter-spacing:1px;">baoziqiuzhi.com · 简历诊断系统 · 让求职更高效</div>'
+    +'<div style="width:50px;height:2px;background:rgba(255,255,255,.15);border-radius:1px;"></div>'
+    +(qrDataUrl
+      ?'<div style="background:#fff;border-radius:16px;padding:16px;margin:8px 0;">'
+      +'<img src="'+qrDataUrl+'" style="width:200px;height:200px;display:block;" alt="企业微信二维码"/>'
+      +'</div>'
+      +'<div style="font-size:13px;color:rgba(255,255,255,.5);">扫码添加，获取专属职业规划服务</div>'
+      :'')
+    +'<div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:16px 28px;">'
+    +'<div style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:5px;">如需一对一辅导，欢迎联系</div>'
+    +'<div style="font-size:14px;font-weight:700;color:#a5b4fc;">添加'+BRAND+'顾问 · 职业规划从这里开始</div>'
+    +'</div>'
+    +'<div style="font-size:11px;color:rgba(255,255,255,.2);">本职业生涯规划报告仅供参考 · '+genDate+'</div>'
+    +'</div>'
+    +'</div>';
 
-  /* ── 2. 逐 section 渲染 + 拼 PDF ── */
-  const sections = [
-    { label:'封面',     html: coverHtml },
-    { label:'诊断总览', html: overviewHtml },
-    { label:'修改清单', html: fixesHtml },
-    { label:'雷达图',   html: radarHtml },
-    { label:'高危问题', html: highHtml },
-    { label:'中危问题', html: midHtml },
-    { label:'低危问题', html: lowHtml },
-    { label:'职业规划', html: careerHtml1 },
-    { label:'职业规划2',html: careerHtml2 },
-    { label:'封底',     html: footerHtml },
-  ].filter(s => s.html);
+  /* ── 逐 section 渲染 + 拼PDF ── */
+  const sections=[
+    {label:'白色封面',   html:newCoverHtml},
+    {label:'诊断封面',   html:coverHtml},
+    {label:'诊断总览',   html:overviewHtml},
+    {label:'修改清单',   html:fixesHtml},
+    {label:'雷达图',     html:radarHtml},
+    {label:'高危问题',   html:highHtml},
+    {label:'中危问题',   html:midHtml},
+    {label:'低危问题',   html:lowHtml},
+    {label:'职业规划上', html:careerHtml1},
+    {label:'职业规划下', html:careerHtml2},
+    {label:'封底',       html:footerHtml},
+  ].filter(s=>s.html);
 
-  const { jsPDF } = window.jspdf;
-  const pdf  = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-  const pW   = pdf.internal.pageSize.getWidth();   // 210mm
-  const pH   = pdf.internal.pageSize.getHeight();  // 297mm
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const pW=pdf.internal.pageSize.getWidth();
+  const pH=pdf.internal.pageSize.getHeight();
+  let isFirst=true;
 
-  let isFirstPage = true;
-
-  for (let i = 0; i < sections.length; i++) {
-    const sec = sections[i];
-    setLabel('⏳ 渲染中 ' + (i+1) + '/' + sections.length + ' — ' + sec.label);
-
-    const div = document.createElement('div');
-    div.style.cssText = 'position:fixed;top:0;left:-9999px;width:794px;background:#fff;z-index:-999;';
-    div.innerHTML = sec.html;
+  for(let i=0;i<sections.length;i++){
+    const sec=sections[i];
+    setLabel('⏳ 渲染 '+(i+1)+'/'+sections.length+' — '+sec.label);
+    const div=document.createElement('div');
+    div.style.cssText='position:fixed;top:0;left:-9999px;width:794px;background:#fff;z-index:-999;';
+    div.innerHTML=sec.html;
     document.body.appendChild(div);
-
-    await new Promise(r => setTimeout(r, 400));
-
+    await new Promise(r=>setTimeout(r,400));
     let canvas;
-    try {
-      canvas = await html2canvas(div, {
-        scale: 2, useCORS: true, allowTaint: true,
-        backgroundColor: '#ffffff', logging: false,
-        width: 794, windowWidth: 794,
+    try{
+      canvas=await html2canvas(div,{
+        scale:2,useCORS:true,allowTaint:true,
+        backgroundColor:'#ffffff',logging:false,
+        width:794,windowWidth:794,
       });
-    } finally {
-      document.body.removeChild(div);
-    }
-
-    const imgD = canvas.toDataURL('image/jpeg', 0.92);
-    const totH = (canvas.height / canvas.width) * pW;
-
-    if (!isFirstPage) pdf.addPage();
-    isFirstPage = false;
-
-    let left = totH, yOff = 0;
-    pdf.addImage(imgD, 'JPEG', 0, yOff, pW, totH);
-    left -= pH;
-    while (left > 0) {
-      yOff -= pH; pdf.addPage();
-      pdf.addImage(imgD, 'JPEG', 0, yOff, pW, totH);
-      left -= pH;
-    }
+    }finally{document.body.removeChild(div);}
+    const imgD=canvas.toDataURL('image/jpeg',0.92);
+    const totH=(canvas.height/canvas.width)*pW;
+    if(!isFirst)pdf.addPage();
+    isFirst=false;
+    let left=totH,yOff=0;
+    pdf.addImage(imgD,'JPEG',0,yOff,pW,totH);
+    left-=pH;
+    while(left>0){yOff-=pH;pdf.addPage();pdf.addImage(imgD,'JPEG',0,yOff,pW,totH);left-=pH;}
   }
 
   setLabel('⏳ 保存文件…');
-  pdf.save('包子求职_简历诊断报告.pdf');
-  setLabel(origLabel); setDisabled(false);
+  pdf.save('职途领航_职业生涯规划报告.pdf');
+  setLabel(origLabel);
+  if(btn)btn.disabled=false;
 }
 
 </script>
